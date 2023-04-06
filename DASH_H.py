@@ -728,7 +728,6 @@ class PROGNOZ:
         okrugl = [col for col in PROD_SVOD.columns if col not in ne_col]
         # округление
         PROD_SVOD[okrugl] = PROD_SVOD[okrugl].round(2)
-
         # endregion
         DOC().to_TEMP(x=PROD_SVOD, name="Временный файл_продаж.csv")
         return PROD_SVOD
