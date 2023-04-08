@@ -4,12 +4,13 @@ from pandas.tseries.offsets import MonthBegin
 import time
 import os
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import sys
 import math
 import gc
 # from memory_profiler import profile
 import numpy as np
+import winsound
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
 5
@@ -27,6 +28,9 @@ PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С НОВЫМИ ФАЙЛАМИ\\"
 '''аномальные снижения рост отсл добавить'''
 '''Ошибки по стокам и статьям'''
 '''чеков на сет'''
+# endregion
+# region ОБНОВЛЕНИЕ ИСТОРИИ
+HISTORY = "y"
 # endregion
 class RENAME:
     def Rread(self):
@@ -320,11 +324,14 @@ class NEW:
                         FINREZ["удалить для фрс и аренда"] == 'да')
             FINREZ.loc[mask, 'значение'] = 0
 
+
             # добавление столбца для каскадных значений
             FINREZ["каскад"] = FINREZ["значение"]
-            FINREZ.loc[FINREZ["группа"] == "Расход", "каскад"] = -FINREZ["значение"]
-            FINREZ.loc[FINREZ["группа"] == "Закуп", "каскад"] = -FINREZ["значение"]
+            FINREZ.loc[FINREZ["группа"] == "Затраты, руб.(без НДС)", "каскад"] = -FINREZ["значение"]
+            FINREZ.loc[FINREZ["группа"] == "Закуп, руб.(без НДС)", "каскад"] = -FINREZ["значение"]
 
+            DOC().to_POWER_BI(x=FINREZ, name="Финрез_ФРСТЕСТ.csv")
+            print(FINREZ)
             # деление таблиц на каналы
             # ################################################################# ФРС
             # ФРС только стать участвующие в чистой прибыли
@@ -436,6 +443,13 @@ class NEW:
                                                           (FINREZ_FRANSHIZA_01["отбор"] == "доля") |
                                                           (FINREZ_FRS_01["отбор"] == "инвестиции")]
             FINREZ_FRANSHIZA = pd.concat([FINREZ_FRANSHIZA, FINREZ_FRANSHIZA_01], axis=0)
+            # Фрс исключения для расчета рентабельности
+            FINREZ_FRANSHIZA.loc[(FINREZ_FRANSHIZA["отбор"] == "товароборот") |
+                           (FINREZ_FRANSHIZA["отбор"] == "наценка") |
+                           (FINREZ_FRANSHIZA["отбор"] == "доля") |
+                           (FINREZ_FRANSHIZA["отбор"] == "инвестиции") |
+                           (FINREZ_FRANSHIZA["отбор"] == "точка безубыточности") |
+                           (FINREZ_FRANSHIZA["отбор"] == "персонал"), "каскад"] = 0
             FINREZ_FRANSHIZA = FINREZ_FRANSHIZA.reset_index(drop=True)
 
             # ################################################################# ФРАНШИЗА
@@ -455,8 +469,101 @@ class NEW:
             print("Сохранено - Финрез_Обработанный.csv")
             return FINREZ
     '''обработка финреза итоговых значений'''
+    def History(self):
+        print("обновление истории")
+        rng, replacements = RENAME().Rread()
+        path = "D:\\Python\\Dashboard\\Исходные данные\\"  ##главный каталог
+        path_to = "D:\\Python\\Dashboard\\ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\"   ##Куда
+        papki_1uroven = os.listdir(path)  ##  смотрит папки главный каталог
+        for god in papki_1uroven:
+            os.mkdir(path_to + god)  ##  создает  каталоги для года
+            papki_2uroven = os.listdir(path + god)  ##  смотрит папки внутри года каталог
+            for mon in papki_2uroven:  ##  выбирает месяц
+                os.mkdir(path_to + god + "\\" + mon)  ##  создает  каталоги для выбранного месяца
+                files = os.listdir(path + god + "\\" + mon)  ## смотрит файлы в выбраннном месяце
+                for f in tqdm(files, desc="ГОДА   --  ", ncols=130):  ##  переберает файлы
+                    file = path + god + "\\" + mon + "\\" + f
+                    stroka = open(file, 'r', encoding='utf-8')
+                    new_name = f
+                    new_name = new_name[0:23]  ##  берет имя для нового файла
+                    stroka.close()  ##  закрывает файл
+                    df = pd.read_csv(file, sep="\t", encoding='utf-8', parse_dates=['По дням'],dayfirst=True,)
+                    # удаление лишних столбцов
+                    df = df.drop(["СписРуб"], axis=1)
+                    if 'Количество списания' in df.columns:
+                       df = df.drop('Количество списания', axis=1)
+                    if 'Списания, кг' in df.columns:
+                        df = df.drop('Списания, кг', axis=1)
+                    # переименовние магазинв
+                    for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): df[
+                        'Склад магазин.Наименование'] = \
+                        df['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+
+                    # Обработка файла списания
+                    spis = os.listdir(PUT+ "Списания\\"  + god + "\\" + mon)
+                    for s in spis:
+                        # открывает аналогичный года по маке файла продаж
+                        file_s = PUT+ "Списания\\" + god + "\\" + mon + "\\" + s
+                        spisisania = pd.read_csv(file_s, sep="\t", encoding='utf-8', skiprows=7, parse_dates=['По дням'],dayfirst=True,
+                                              names=("Склад магазин.Наименование", "Номенклатура", 'По дням', "операции списания","СписРуб","списруб_без_ндс" ))
+                        # переименование магазинов
+                        for i in tqdm(range(rng), desc="Переименование тт Списания - ", colour="#808080"): spisisania[
+                            'Склад магазин.Наименование'] = \
+                            spisisania['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+                        # Фильтрация файла списания меньше или равно файлам продаж дтаа
+                        max_sales = df['По дням'].max()
+                        min_sales = df['По дням'].min()
+                        spisisania = spisisania.loc[(spisisania['По дням'] <= max_sales) & (spisisania['По дням'] >= min_sales)]
+                        # убрать строку итого
+                        spisisania = spisisania.loc[spisisania["Склад магазин.Наименование"] != "Итого"]
+                        # чистка мусора продажи
+                        df["Выручка"] = df["Выручка"].str.replace(',', '.')
+                        df["Выручка"] = df["Выручка"].str.replace('\xa0', '')
+                        df["Выручка"] = df["Выручка"].astype("float")
+                        # так как столбец списаний удален то убрать пустые строки
+                        df = df.loc[df["Выручка"] > 0]
+                        # чистка мусора списания
+                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace(',', '.')
+                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace('\xa0', '')
+                        spisisania["СписРуб"] = spisisania["СписРуб"].astype("float")
+                        spisisania = spisisania.loc[spisisania["СписРуб"] > 0]
+                        # Для сверки итоговых значений после слияния столбца результатты до слияния
+                        spisisania_do = spisisania["СписРуб"].copy()
+                        df_do = df["Выручка"].copy()
+                        # обьеденение таблиц списания и продаж
+                        df = pd.concat([df, spisisania], axis=0)
+                        # лог
+                        max_sales = df['По дням'].max()
+                        min_sales = df['По дням'].min()
+                        # лог Для сверки итоговых значений после слияния столбца результатты после слияния
+                        spisisania_ps = spisisania["СписРуб"].copy()
+                        df_ps = df["Выручка"].copy()
+                        # запись в файл проверчных значений
+                        with open(PUT + "ERROR\\" + 'Архив тест суммы после обьеденения.txt', mode='a') as f:
+                            f.write(file + '\n'  "Разница в выручке:" + str(df_ps.sum() - df_do.sum()) +
+                                    "  Разница в списание:" + str(spisisania_ps.sum() - spisisania_do.sum()) + '\n' +
+                                    "минимальная дата - " +  str(min_sales) + "  максимальная дата - " +  str(max_sales) )
+                    df.to_csv(path_to + god + "\\" + mon + "\\" + new_name + ".txt", encoding='utf-8', sep="\t",
+                              index=False)  ##  сохраняет файл
+                    duration = 1000
+                    freq = 440
+                    winsound.Beep(freq, duration)
+                    # очистка памяти
+                    spisisania = pd.DataFrame()
+                    df = pd.DataFrame()
+                    gc.enable()
+                    print(new_name, " готов")
+                print(mon, ' готов')  ##  Заканчивает месяц, папку в годе, потом бере след.
+            print(god, "готов")  ##  Заканчивает год , берет следующую
+        print("ГОТОВО")
+        return
+    """Обновление истории (~1 час)"""
     def Obnovlenie(self):
         print("ОБНОВЛЕНИЕ ПРОДАЖ........\n")
+
+        if HISTORY == "y" :
+            NEW().History()
+
         rng, replacements = RENAME().Rread()
         for rootdir, dirs, files in os.walk(PUT + "NEW\\"):
             for file in files:
@@ -474,6 +581,12 @@ class NEW:
                     read = read.reset_index(drop=True)
                     read.to_csv(PUT_PROD + "Продажи, Списания, Прибыль\\Текщий год\\" + file, encoding='utf-8',
                                 sep="\t", index=False)
+
+
+
+
+
+
                 if ((file.split('.')[-1]) == 'xlsx'):
                     pyt_excel = os.path.join(rootdir, file)
                     read = pd.read_excel(pyt_excel, sheet_name="Sheet1")
@@ -484,8 +597,30 @@ class NEW:
                     read = read.reset_index(drop=True)
                     read.to_excel(PUT_PROD + "ЧЕКИ\\2023\\" + file,
                                   index=False)
+                NEW().Obnovlenie_error()
                 gc.enable()
     '''отвечает за загрузку и переименование новых данных продаж и чеков'''
+    def Obnovlenie_error(self):
+        start = "D:\\Python\\Dashboard\\ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\"
+        end = PUT + "ERROR\\" + 'Проверка в папке на уникальный месяц после обновления истории.txt'
+        test_eror = []
+        for root, dirs, files in os.walk(start):
+            for file in files:
+                if file.endswith('.txt'):
+                    file_path = os.path.join(root, file)
+                    df = pd.read_csv(file_path, sep="\t", encoding='utf-8',  parse_dates=["По дням"], low_memory=False)
+                    min_date = df['По дням'].min()
+                    max_date = df['По дням'].max()
+                    delta_days = (max_date - min_date).days
+                    if delta_days > 30:
+                        result = f"{file_path}: {min_date} - {max_date} ({delta_days} дней) - более 1 месяца\n"
+                        print("КОСЯК   -", result)
+                    else:
+                        result = f"{file_path}: {min_date} - {max_date} ({delta_days} дней)\n"
+                        print("норм   -", result)
+                    test_eror.append(result)
+        with open(end, 'w') as f:
+            f.writelines(test_eror)
     def NDS_vir(self):
         rng, replacements = RENAME().Rread()
         print("Обновление данных выручки ндс\n")
@@ -508,9 +643,7 @@ class NEW:
         Ren = ["ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"]
         for r in Ren:
             vir_NDS[r] = vir_NDS[r].str.replace(',', '.')
-            vir_NDS[r] = vir_NDS[r].str.replace(' ', '')
-            vir_NDS[r] = vir_NDS[r].str.replace(' ', '')
-            vir_NDS[r] = vir_NDS[r].str.replace(' ', "")
+            vir_NDS[r] = vir_NDS[r].str.replace('\xa0', '')
             vir_NDS[r] = vir_NDS[r].astype("float")
         vir_NDS["ставка выручка ндс"] = (vir_NDS["ПРОДАЖИ БЕЗ НДС"] / vir_NDS["ПРОДАЖИ С НДС"])
         vir_NDS["ПРОВЕРКАА"] = vir_NDS["ПРОДАЖИ С НДС"] * vir_NDS["ставка выручка ндс"]
@@ -525,8 +658,8 @@ class NEW:
             for file in files:
                 if ((file.split('.')[-1]) == 'txt'):
                     pyt_txt = os.path.join(rootdir, file)
-                    Spisania_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=8,
-                                              names=("магазин", "ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"))
+                    Spisania_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=7,
+                                              names=("магазин", "списание_без_хозов_с_ндс", "списание_без_хозов_без_ндс"))
                     for i in tqdm(range(rng), desc="Переименование тт списания без хозов ндс -" + file, ncols=120,
                                   colour="#F8C9CE"):
                         Spisania_00["магазин"] = Spisania_00["магазин"].replace(replacements["НАЙТИ"][i],
@@ -537,14 +670,13 @@ class NEW:
                     Spisania_00["дата"] = date
                     Spisania_00["дата"] = pd.to_datetime(Spisania_00["дата"], dayfirst=True)
                     Spisania = pd.concat([Spisania, Spisania_00], axis=0)
-        Ren = ["ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"]
+        Ren = ["списание_без_хозов_с_ндс", "списание_без_хозов_без_ндс"]
         for r in Ren:
             Spisania[r] = Spisania[r].str.replace(',', '.')
-            Spisania[r] = Spisania[r].str.replace(' ', '')
-            Spisania[r] = Spisania[r].str.replace(' ', "")
+            Spisania[r] = Spisania[r].str.replace('\xa0', '')
             Spisania[r] = Spisania[r].astype("float")
-        Spisania["ставка списание без хозов ндс"] = (Spisania["ПРОДАЖИ БЕЗ НДС"] / Spisania["ПРОДАЖИ С НДС"])
-        Spisania["ПРОВЕРКАА"] = Spisania["ПРОДАЖИ С НДС"] * Spisania["ставка списание без хозов ндс"]
+        Spisania["ставка списание без хозов ндс"] = (Spisania["списание_без_хозов_с_ндс"] / Spisania["списание_без_хозов_без_ндс"])
+        Spisania["ПРОВЕРКАА"] = Spisania["списание_без_хозов_с_ндс"] * Spisania["ставка списание без хозов ндс"]
         gc.enable()
         return Spisania
     '''отвечает за загрузку данных для  расчета ставки списания без хозов ндс'''
@@ -556,8 +688,8 @@ class NEW:
             for file in files:
                 if ((file.split('.')[-1]) == 'txt'):
                     pyt_txt = os.path.join(rootdir, file)
-                    Pitanie_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=8,
-                                             names=("магазин", "ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"))
+                    Pitanie_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=7,
+                                             names=("магазин", "питание_ндс", "2.10. Питание сотрудников "))
                     for i in tqdm(range(rng), desc="Переименование тт списания без хозов ндс -" + file, ncols=120,
                                   colour="#F8C9CE"):
                         Pitanie_00["магазин"] = Pitanie_00["магазин"].replace(replacements["НАЙТИ"][i],
@@ -568,14 +700,13 @@ class NEW:
                     Pitanie_00["дата"] = date
                     Pitanie_00["дата"] = pd.to_datetime(Pitanie_00["дата"], dayfirst=True)
                     Pitanie = pd.concat([Pitanie, Pitanie_00], axis=0)
-        Ren = ["ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"]
+        Ren = ["питание_ндс", "2.10. Питание сотрудников "]
         for r in Ren:
             Pitanie[r] = Pitanie[r].str.replace(',', '.')
-            Pitanie[r] = Pitanie[r].str.replace(' ', '')
-            Pitanie[r] = Pitanie[r].str.replace(' ', "")
+            Pitanie[r] = Pitanie[r].str.replace('\xa0', '')
             Pitanie[r] = Pitanie[r].astype("float")
-        Pitanie["питание ставка ндс"] = (Pitanie["ПРОДАЖИ БЕЗ НДС"] / Pitanie["ПРОДАЖИ С НДС"])
-        Pitanie["ПРОВЕРКАА"] = Pitanie["ПРОДАЖИ С НДС"] * Pitanie["питание ставка ндс"]
+        Pitanie["питание ставка ндс"] = (Pitanie["2.10. Питание сотрудников "] / Pitanie["питание_ндс"])
+        Pitanie["ПРОВЕРКАА"] = Pitanie["питание_ндс"] * Pitanie["питание ставка ндс"]
         gc.enable()
         return Pitanie
     '''отвечает за загрузку данных для  расчета ставки питание с ндс'''
@@ -615,9 +746,9 @@ class NEW:
 
         # обьеденене ставок ндс
         sales = sales.drop(['ПРОДАЖИ С НДС', 'ПРОДАЖИ БЕЗ НДС', 'ПРОВЕРКАА'], axis=1)
-        NDS = sales.merge(spisanie_not_hoz[["магазин", "дата", "ставка списание без хозов ндс"]],
+        NDS = sales.merge(spisanie_not_hoz[["магазин", "дата", "ставка списание без хозов ндс","списание_без_хозов_без_ндс"]],
                           on=["магазин", "дата"], how="left")
-        NDS = NDS.merge(pitanie[["магазин", "дата", "питание ставка ндс"]],
+        NDS = NDS.merge(pitanie[["магазин", "дата", "питание ставка ндс","2.10. Питание сотрудников "]],
                         on=["магазин", "дата"], how="left")
         NDS["хозы ставка ндс"] = 0.80
 
@@ -625,8 +756,8 @@ class NEW:
                         on=["магазин", "дата"], how="left")
 
         # добавление режима налогобложения для установки ставки на упраенку 1'''
-        #canal_nalog_maxdate = Dat_canal_nalg["дата"].max()
-        #canal_nalog = Dat_canal_nalg.loc[Dat_canal_nalg['дата'] == canal_nalog_maxdate]
+        canal_nalog_maxdate = Dat_canal_nalg["дата"].max()
+        canal_nalog = Dat_canal_nalg.loc[Dat_canal_nalg['дата'] == canal_nalog_maxdate]
         NDS = NDS.merge(
             Dat_canal_nalg[["магазин", 'режим налогообложения', 'канал', 'канал на последний закрытый период']],
             on=["магазин"], how="outer")
@@ -656,13 +787,13 @@ class PROGNOZ:
                     PROD_SVOD_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', parse_dates=['дата'],skiprows=1,
                                                dayfirst=True, names=("магазин","номенклатура","дата","количество_продаж",
                                                                      "вес_продаж","Закуп товара общий, руб с НДС", "Выручка Итого, руб с НДС", "Наценка Общая, руб с НДС","СписРуб","Списания, кг"))
+
+
                     PROD_SVOD_00 = PROD_SVOD_00.drop(["Списания, кг", "количество_продаж"], axis=1)
                     lg = ("Выручка Итого, руб с НДС", "Наценка Общая, руб с НДС",  "СписРуб", "Закуп товара общий, руб с НДС")
                     for e in lg:
-                        PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace(" ", "")
+                        PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace("\xa0", "")
                         PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace(",", ".")
-                        PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace(" ", "")
-                        PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace(' ', "")
                         PROD_SVOD_00[e] = PROD_SVOD_00[e].astype("float")
                         PROD_SVOD_00["магазин"] = PROD_SVOD_00["магазин"].astype(
                             "category")
@@ -713,8 +844,6 @@ class PROGNOZ:
         # endregion
         # redion добавление ставки ндс вычисление выручки без ндс
         nds = NEW().Stavka_nds_Kanal()
-        print(nds)
-        print(PROD_SVOD)
         PROD_SVOD = PROD_SVOD.merge(nds, on=["дата", "магазин"], how="left")
         PROD_SVOD["Выручка Итого, руб без НДС"] = PROD_SVOD["Выручка Итого, руб с НДС"] * PROD_SVOD[
             "ставка выручка ндс"]
@@ -787,8 +916,9 @@ class PROGNOZ:
     """функция за обработку данных"""
 """обработка пути продаж формирование, групировка таблиц"""
 
-
-NEW().Finrez()
+#NEW().Stavka_nds_Kanal()
+#NEW().Finrez()
+#NEW().Obnovlenie_error()
 NEW().Obnovlenie()
-PROGNOZ().SALES_obrabotka()
-PROGNOZ().Sales_prognoz()
+#PROGNOZ().SALES_obrabotka()
+#PROGNOZ().Sales_prognoz()
