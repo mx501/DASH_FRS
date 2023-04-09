@@ -6,7 +6,7 @@ PUT= "D:\\Python\\Dashboard\\NEW\\Январь февраль\\"
 for filename in os.listdir(PUT):
     print(filename)
     if filename.endswith(".txt"):
-        df = pd.read_csv(os.path.join(PUT, filename), sep="\t", encoding='utf-8', skiprows=3,  parse_dates=['По дням'],dayfirst=True, names=(
+        df = pd.read_csv(os.path.join(PUT, filename), sep="\t", encoding='utf-8', skiprows=3,  parse_dates=['По дням'], names=(
                         ['Склад магазин.Наименование', 'Номенклатура', 'По дням', 'Количество продаж', 'ВесПродаж',
                          'Себестоимость',
                          'Выручка', 'Прибыль', 'СписРуб', 'Списания, кг']))
@@ -22,3 +22,4 @@ for filename in os.listdir(PUT):
                         sep="\t", index=False)
             df2.to_csv(PUT + filename2, encoding='utf-8',
                        sep="\t", index=False)
+

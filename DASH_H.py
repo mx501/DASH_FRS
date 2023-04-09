@@ -13,14 +13,20 @@ import numpy as np
 import winsound
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
-5
-# region ПУТЬ ДОПАПКИ С ФАЙЛАМИ
-PUT = "D:\\Python\\Dashboard\\"
-#PUT = "C:\\Users\\lebedevvv\\Desktop\\Dashboard\\"
 
-PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С НОВЫМИ ФАЙЛАМИ\\"
-#PUT_PROD = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\Текщий год\\"
-# endregion
+# расположение данных home или work
+geo = "h"
+if geo == "h":
+    # основной каталог расположение данных дашборда
+    PUT = "D:\\Python\\Dashboard\\"
+    # путь до файлов с данными о продажах
+    PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\Текущий год\\"
+else:
+    # основной каталог расположение данных дашборда
+    PUT = "C:\\Users\\lebedevvv\\Desktop\\Dashboard\\"
+    # путь до файлов с данными о продажах
+    PUT_PROD = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\Текущий год\\"
+
 # region комементарии
 '''обновить все данные'''
 '''мини дашборд для ту'''
@@ -30,7 +36,7 @@ PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С НОВЫМИ ФАЙЛАМИ\\"
 '''чеков на сет'''
 # endregion
 # region ОБНОВЛЕНИЕ ИСТОРИИ
-HISTORY = "y"
+HISTORY = "n"
 # endregion
 class RENAME:
     def Rread(self):
@@ -498,7 +504,6 @@ class NEW:
                     for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): df[
                         'Склад магазин.Наименование'] = \
                         df['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
-
                     # Обработка файла списания
                     spis = os.listdir(PUT+ "Списания\\"  + god + "\\" + mon)
                     for s in spis:
@@ -557,13 +562,84 @@ class NEW:
             print(god, "готов")  ##  Заканчивает год , берет следующую
         print("ГОТОВО")
         return
-    """Обновление истории (~1 час)"""
+    """Обновление истории (~2 час)"""
     def Obnovlenie(self):
         print("ОБНОВЛЕНИЕ ПРОДАЖ........\n")
-
         if HISTORY == "y" :
             NEW().History()
+        rng, replacements = RENAME().Rread()
+        for rootdir, dirs, files in os.walk(PUT + "NEW\\"):
+            for file in files:
+                if ((file.split('.')[-1]) == 'txt'):
+                    pyt_txt = os.path.join(rootdir, file)
+                    df = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', parse_dates=['По дням'], dayfirst=True, skiprows=3, names=(
+                        ['Склад магазин.Наименование', 'Номенклатура', 'По дням', 'Количество продаж', 'ВесПродаж',
+                         'Себестоимость',
+                         'Выручка', 'Прибыль', 'СписРуб', 'Списания, кг']))
+                    god  = df['По дням'].dt.year.max()
+                    # удаление лишних столбцов
+                    df = df.drop(["СписРуб"], axis=1)
+                    if 'Количество списания' in df.columns:
+                        df = df.drop('Количество списания', axis=1)
+                    if 'Списания, кг' in df.columns:
+                        df = df.drop('Списания, кг', axis=1)
+                    # переименовние магазинв
+                    for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): df[
+                        'Склад магазин.Наименование'] = \
+                        df['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
 
+                    # Обработка файла списания
+                    # открывает аналогичный года по маке файла продаж
+                    file_s = PUT + "Списания\\Текущий месяц\\"
+                    for files in os.listdir(file_s):
+                        print(files)
+                        spisisania = pd.read_csv(file_s+files, sep="\t", encoding='utf-8', skiprows=7, parse_dates=['По дням'], dayfirst=True,
+                                                 names=("Склад магазин.Наименование", "Номенклатура", 'По дням', "операции списания", "СписРуб", "списруб_без_ндс"))
+                        # переименование магазинов
+                        for i in tqdm(range(rng), desc="Переименование тт Списания - ", colour="#808080"): spisisania[
+                            'Склад магазин.Наименование'] = \
+                            spisisania['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+                        # Фильтрация файла списания меньше или равно файлам продаж дтаа
+                        max_sales = df['По дням'].max()
+                        min_sales = df['По дням'].min()
+                        spisisania = spisisania.loc[(spisisania['По дням'] <= max_sales) & (spisisania['По дням'] >= min_sales)]
+                        # убрать строку итого
+                        spisisania = spisisania.loc[spisisania["Склад магазин.Наименование"] != "Итого"]
+                        # чистка мусора продажи
+                        df["Выручка"] = df["Выручка"].str.replace(',', '.')
+                        df["Выручка"] = df["Выручка"].str.replace('\xa0', '')
+                        df["Выручка"] = df["Выручка"].astype("float")
+                        # так как столбец списаний удален то убрать пустые строки
+                        df = df.loc[df["Выручка"] > 0]
+                        # чистка мусора списания
+                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace(',', '.')
+                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace('\xa0', '')
+                        spisisania["СписРуб"] = spisisania["СписРуб"].astype("float")
+                        spisisania = spisisania.loc[spisisania["СписРуб"] > 0]
+                        # Для сверки итоговых значений после слияния столбца результатты до слияния
+                        spisisania_do = spisisania["СписРуб"].copy()
+                        df_do = df["Выручка"].copy()
+                        # обьеденение таблиц списания и продаж
+                        df = pd.concat([df, spisisania], axis=0)
+                        # лог
+                        max_sales = df['По дням'].max()
+                        min_sales = df['По дням'].min()
+                        # лог Для сверки итоговых значений после слияния столбца результатты после слияния
+                        spisisania_ps = spisisania["СписРуб"].copy()
+                        df_ps = df["Выручка"].copy()
+                        # запись в файл проверчных значений
+                        with open(PUT + "ERROR\\" + 'Архив тест суммы после обьеденения.txt', mode='a') as f:
+                            f.write(file + '\n'  "Разница в выручке:" + str(df_ps.sum() - df_do.sum()) +
+                                    "  Разница в списание:" + str(spisisania_ps.sum() - spisisania_do.sum()) + '\n' +
+                                    "минимальная дата - " + str(min_sales) + "  максимальная дата - " + str(max_sales))
+                        # сохранение файла
+                        df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t",
+                                  index=False)  ##  сохраняет файл
+                        # очистка памяти
+                        spisisania = pd.DataFrame()
+                        df = pd.DataFrame()
+                        gc.enable()
+        """
         rng, replacements = RENAME().Rread()
         for rootdir, dirs, files in os.walk(PUT + "NEW\\"):
             for file in files:
@@ -582,11 +658,6 @@ class NEW:
                     read.to_csv(PUT_PROD + "Продажи, Списания, Прибыль\\Текщий год\\" + file, encoding='utf-8',
                                 sep="\t", index=False)
 
-
-
-
-
-
                 if ((file.split('.')[-1]) == 'xlsx'):
                     pyt_excel = os.path.join(rootdir, file)
                     read = pd.read_excel(pyt_excel, sheet_name="Sheet1")
@@ -598,29 +669,9 @@ class NEW:
                     read.to_excel(PUT_PROD + "ЧЕКИ\\2023\\" + file,
                                   index=False)
                 NEW().Obnovlenie_error()
-                gc.enable()
-    '''отвечает за загрузку и переименование новых данных продаж и чеков'''
-    def Obnovlenie_error(self):
-        start = "D:\\Python\\Dashboard\\ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\"
-        end = PUT + "ERROR\\" + 'Проверка в папке на уникальный месяц после обновления истории.txt'
-        test_eror = []
-        for root, dirs, files in os.walk(start):
-            for file in files:
-                if file.endswith('.txt'):
-                    file_path = os.path.join(root, file)
-                    df = pd.read_csv(file_path, sep="\t", encoding='utf-8',  parse_dates=["По дням"], low_memory=False)
-                    min_date = df['По дням'].min()
-                    max_date = df['По дням'].max()
-                    delta_days = (max_date - min_date).days
-                    if delta_days > 30:
-                        result = f"{file_path}: {min_date} - {max_date} ({delta_days} дней) - более 1 месяца\n"
-                        print("КОСЯК   -", result)
-                    else:
-                        result = f"{file_path}: {min_date} - {max_date} ({delta_days} дней)\n"
-                        print("норм   -", result)
-                    test_eror.append(result)
-        with open(end, 'w') as f:
-            f.writelines(test_eror)
+                #gc.enable()
+        '''отвечает за загрузку и переименование новых данных продаж и чеков'''    
+                """
     def NDS_vir(self):
         rng, replacements = RENAME().Rread()
         print("Обновление данных выручки ндс\n")
