@@ -77,7 +77,7 @@ class BOT:
             print(f'Произошла ошибка при отправке сообщения: {response.status_code}')
     """отправка сообщений"""
 """Бот телеграм"""
-BOT().bot_mes( bot_mes= "d" )
+#BOT().bot_mes( bot_mes= "d" )
 class DOC:
     def to(self, x, name):
         x.to_csv(PUT + "RESULT\\" + name, encoding="ANSI", sep=';',
