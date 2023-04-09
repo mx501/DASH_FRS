@@ -1,13 +1,14 @@
 from pandas.tseries.offsets import DateOffset
 from datetime import datetime, timedelta, time
 from pandas.tseries.offsets import MonthBegin
-import time
 import os
 import pandas as pd
 from tqdm.auto import tqdm
 import sys
 import math
 import gc
+import requests
+from tabulate import tabulate
 # from memory_profiler import profile
 import numpy as np
 import winsound
@@ -38,23 +39,45 @@ else:
 # region ОБНОВЛЕНИЕ ИСТОРИИ
 HISTORY = "n"
 # endregion
+
 class RENAME:
     def Rread(self):
         replacements = pd.read_excel(PUT + "DATA_2\\ДЛЯ ЗАМЕНЫ.xlsx",
                                      sheet_name="Лист1")
         rng = len(replacements)
         return rng, replacements
-
     '''блок переименования'''
-
     def HOZY(self):
         Spisania_HOZI = pd.read_csv(PUT + "хозы справочник\\1.txt", sep="\t", encoding='utf-8', skiprows=8,
                                     names=("магазин", "Номенклатура", "Сумма", "Сумма без НДС"))
         Spisania_HOZI = Spisania_HOZI["Номенклатура"].unique()
         return Spisania_HOZI
-
     '''блок хозы'''
 """чтение файлов для замены назани магазинов и базы номенклатуры хоз оваров"""
+class BOT:
+    def bot_mes(self, bot_mes):
+        with open(PUT + "TEMP\\data_bot.txt", "r") as file:
+            for line in file:
+                if "TOKEN/" in line:
+                    token = line.strip().split("/")[1]
+                elif "chat_id/" in line:
+                    chat_id = line.strip().split("/")[1]
+        url = f'https://api.telegram.org/bot{token}/sendMessage'
+
+        # Параметры запроса для отправки сообщения
+        params = {'chat_id': chat_id, 'text': bot_mes}
+
+        # Отправка запроса на сервер Telegram для отправки сообщения
+        response = requests.post(url, data=params)
+        # Проверка ответа от сервера Telegram
+
+        if response.status_code == 200:
+            print('Сообщение успешно отправлено!')
+        else:
+            print(f'Произошла ошибка при отправке сообщения: {response.status_code}')
+    """отправка сообщений"""
+"""Бот телеграм"""
+BOT().bot_mes( bot_mes= "d" )
 class DOC:
     def to(self, x, name):
         x.to_csv(PUT + "RESULT\\" + name, encoding="ANSI", sep=';',
@@ -635,6 +658,17 @@ class NEW:
                         # сохранение файла
                         df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t",
                                   index=False)  ##  сохраняет файл
+                        # ДЛЯ БОТА ТЕЛЕГРАМ
+                        Vrem_dat = datetime.now().strftime('%d.%m.%Y %H:%M')
+
+                        data = {
+                            'Дата обновления': [Vrem_dat],
+                            'Сумма продаж': [df_ps.sum().round(2)],
+                            'Сумма списаний': [spisisania_ps.sum().round(2)]
+                        }
+                        bot_t = pd.DataFrame(data)
+                        bot_t.to_csv(PUT + "TEMP\\" + 'data_bot.csv', index=False, sep=";", encoding='ANSI')
+
                         # очистка памяти
                         spisisania = pd.DataFrame()
                         df = pd.DataFrame()
@@ -967,9 +1001,14 @@ class PROGNOZ:
     """функция за обработку данных"""
 """обработка пути продаж формирование, групировка таблиц"""
 
+
+
+
+
+
 #NEW().Stavka_nds_Kanal()
 #NEW().Finrez()
 #NEW().Obnovlenie_error()
-NEW().Obnovlenie()
+#NEW().Obnovlenie()
 #PROGNOZ().SALES_obrabotka()
 #PROGNOZ().Sales_prognoz()
