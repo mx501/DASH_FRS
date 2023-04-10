@@ -55,7 +55,7 @@ class RENAME:
     '''блок хозы'''
 """чтение файлов для замены назани магазинов и базы номенклатуры хоз оваров"""
 class BOT:
-    def bot_mes(self, bot_mes):
+    def bot_mes(self, mes):
         with open(PUT + "TEMP\\data_bot.txt", "r") as file:
             for line in file:
                 if "TOKEN/" in line:
@@ -65,7 +65,7 @@ class BOT:
         url = f'https://api.telegram.org/bot{token}/sendMessage'
 
         # Параметры запроса для отправки сообщения
-        params = {'chat_id': chat_id, 'text': bot_mes}
+        params = {'chat_id': chat_id, 'text':mes}
 
         # Отправка запроса на сервер Telegram для отправки сообщения
         response = requests.post(url, data=params)
@@ -107,7 +107,7 @@ class NEW:
     '''справочник статей_редактируется в ексель'''
     def Dat_nalog_kanal(self):
         Dat_canal_nalg = pd.read_csv(PUT + "TEMP\\" + "Дата_канал_налог.csv",
-                                     sep=";", encoding='ANSI', parse_dates=['дата'], dayfirst=True)
+                                     sep=";", encoding='ANSI', parse_dates=['дата'])
         # вычисление максимального месыяца
         finrez_max_month = Dat_canal_nalg[["дата"]]
         finrez_max_month = finrez_max_month.reset_index(drop=True)
@@ -122,6 +122,7 @@ class NEW:
         finrez_max_data = finrez_max_data.reset_index(drop=True)
         finrez_max_data['дата'] = finrez_max_data['дата'].dt.date
         finrez_max_data = finrez_max_data['дата'].max()
+        finrez_max_data = pd.to_datetime(finrez_max_data)
         print("получение списка каналов и режима налога, получение макс даты")
         return Dat_canal_nalg, finrez_max_month, finrez_max_data
     '''отвечает за загрузку данных каналов и режима налога, используется для вычисления максимальной и минимальной даты и месяца'''
@@ -555,26 +556,23 @@ class NEW:
                         spisisania["СписРуб"] = spisisania["СписРуб"].str.replace('\xa0', '')
                         spisisania["СписРуб"] = spisisania["СписРуб"].astype("float")
                         spisisania = spisisania.loc[spisisania["СписРуб"] > 0]
-                        # Для сверки итоговых значений после слияния столбца результатты до слияния
+                        # Сообщешие в телеграм
                         spisisania_do = spisisania["СписРуб"].copy()
                         df_do = df["Выручка"].copy()
+
                         # обьеденение таблиц списания и продаж
                         df = pd.concat([df, spisisania], axis=0)
-                        # лог
-                        max_sales = df['По дням'].max()
-                        min_sales = df['По дням'].min()
-                        # лог Для сверки итоговых значений после слияния столбца результатты после слияния
+
+                        # Сообщешие в телеграм
                         spisisania_ps = spisisania["СписРуб"].copy()
-                        df_ps = df["Выручка"].copy()
-                        # запись в файл проверчных значений
-                        with open(PUT + "ERROR\\" + 'Архив тест суммы после обьеденения.txt', mode='a') as f:
-                            f.write(file + '\n'  "Разница в выручке:" + str(df_ps.sum() - df_do.sum()) +
-                                    "  Разница в списание:" + str(spisisania_ps.sum() - spisisania_do.sum()) + '\n' +
-                                    "минимальная дата - " +  str(min_sales) + "  максимальная дата - " +  str(max_sales) )
-                    df.to_csv(path_to + god + "\\" + mon + "\\" + new_name + ".txt", encoding='utf-8', sep="\t",
+                        df_ps = df["Выручка"]
+                        # Сообщешие в телеграм
+                        BOT().bot_mes(mes= new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
+
+                    df.to_csv(path_to + god + "\\" + mon + "\\" + new_name + ".txt", encoding='utf-8', decimal=",", sep="\t",
                               index=False)  ##  сохраняет файл
                     duration = 1000
-                    freq = 440
+                    freq = 220
                     winsound.Beep(freq, duration)
                     # очистка памяти
                     spisisania = pd.DataFrame()
@@ -656,18 +654,15 @@ class NEW:
                                     "  Разница в списание:" + str(spisisania_ps.sum() - spisisania_do.sum()) + '\n' +
                                     "минимальная дата - " + str(min_sales) + "  максимальная дата - " + str(max_sales))
                         # сохранение файла
-                        df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t",
-                                  index=False)  ##  сохраняет файл
+                        df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t", decimal=",", index=False)  ##  сохраняет файл
                         # ДЛЯ БОТА ТЕЛЕГРАМ
                         Vrem_dat = datetime.now().strftime('%d.%m.%Y %H:%M')
+                        data_str = f"Дашборд обновлен: {Vrem_dat}\n"
+                        data_str += "Сумма продаж: {:,.2f}\n".format(df_ps.sum().round(2)).replace(",", " ").replace(".", ",")
+                        data_str += "Сумма списаний: {:,.2f}\n".format(spisisania_ps.sum().round(2)).replace(",", " ").replace(".", ",")
 
-                        data = {
-                            'Дата обновления': [Vrem_dat],
-                            'Сумма продаж': [df_ps.sum().round(2)],
-                            'Сумма списаний': [spisisania_ps.sum().round(2)]
-                        }
-                        bot_t = pd.DataFrame(data)
-                        bot_t.to_csv(PUT + "TEMP\\" + 'data_bot.csv', index=False, sep=";", encoding='ANSI')
+                        BOT().bot_mes(mes=data_str)
+                        bot_t = pd.DataFrame()
 
                         # очистка памяти
                         spisisania = pd.DataFrame()
@@ -706,6 +701,7 @@ class NEW:
                 #gc.enable()
         '''отвечает за загрузку и переименование новых данных продаж и чеков'''    
                 """
+    """Обновление данных ежедневное"""
     def NDS_vir(self):
         rng, replacements = RENAME().Rread()
         print("Обновление данных выручки ндс\n")
@@ -735,7 +731,7 @@ class NEW:
         gc.enable()
         return vir_NDS
     '''отвечает за загрузку данных для  расчета ставки выручки ндс'''
-    def NDS_spisania(self):
+    """  def NDS_spisania(self):
         rng, replacements = RENAME().Rread()
         print("Обновление данных списания без хозов ндс\n")
         Spisania = pd.DataFrame()
@@ -793,7 +789,7 @@ class NEW:
         Pitanie["питание ставка ндс"] = (Pitanie["2.10. Питание сотрудников "] / Pitanie["питание_ндс"])
         Pitanie["ПРОВЕРКАА"] = Pitanie["питание_ндс"] * Pitanie["питание ставка ндс"]
         gc.enable()
-        return Pitanie
+        return Pitanie"""
     '''отвечает за загрузку данных для  расчета ставки питание с ндс'''
     def NDS_zakup(self):
         rng, replacements = RENAME().Rread()
@@ -824,44 +820,36 @@ class NEW:
     def Stavka_nds_Kanal(self):
         Zakup = NEW().NDS_zakup()
         Dat_canal_nalg, finrez_max_month, finrez_max_data = NEW().Dat_nalog_kanal()
-        pitanie = NEW().NDS_pitanie()
-        spisanie_not_hoz = NEW().NDS_spisania()
         sales = NEW().NDS_vir()
         print("формирование таблицы ставок ндс")
 
         # обьеденене ставок ндс
-        sales = sales.drop(['ПРОДАЖИ С НДС', 'ПРОДАЖИ БЕЗ НДС', 'ПРОВЕРКАА'], axis=1)
-        NDS = sales.merge(spisanie_not_hoz[["магазин", "дата", "ставка списание без хозов ндс","списание_без_хозов_без_ндс"]],
-                          on=["магазин", "дата"], how="left")
-        NDS = NDS.merge(pitanie[["магазин", "дата", "питание ставка ндс","2.10. Питание сотрудников "]],
-                        on=["магазин", "дата"], how="left")
+        NDS = sales.drop(['ПРОДАЖИ С НДС', 'ПРОДАЖИ БЕЗ НДС', 'ПРОВЕРКАА'], axis=1)
         NDS["хозы ставка ндс"] = 0.80
-
         NDS = NDS.merge(Zakup[["магазин", "дата", 'ставка закуп ндс']],
                         on=["магазин", "дата"], how="left")
-
         # добавление режима налогобложения для установки ставки на упраенку 1'''
         canal_nalog_maxdate = Dat_canal_nalg["дата"].max()
         canal_nalog = Dat_canal_nalg.loc[Dat_canal_nalg['дата'] == canal_nalog_maxdate]
         NDS = NDS.merge(
             Dat_canal_nalg[["магазин", 'режим налогообложения', 'канал', 'канал на последний закрытый период']],
             on=["магазин"], how="outer")
-        NDS.loc[NDS['режим налогообложения'] == "упрощенка", ['ставка выручка ндс', 'ставка списание без хозов ндс',
-                                                              "питание ставка ндс", "хозы ставка ндс",
-                                                              'ставка закуп ндс']] = [1, 1, 1, 1, 1]
+        NDS.loc[NDS['режим налогообложения'] == "упрощенка", ['ставка выручка ндс', "хозы ставка ндс",'ставка закуп ндс']] = [1, 1, 1]
 
         # тестовый
         DOC().to_TEMP(x=NDS, name="FINREZ_Nalog_Kanal_test.csv")
         print("Сохранен - FINREZ_Nalog_Kanal_test.csv")
         return NDS
-
     '''отвечает за обьеденение ставок nds  в одну таблицу вычисление налога для упращенки'''
 '''отвечает первоначальную обработку, сохранение временных файлов для вычисления минимальной и максимальной даты,
 сохраненние вреенного файла с каналати и режимом налогобложения'''
+
 class PROGNOZ:
     def SALES_obrabotka(self):
         gc.enable()
         Dat_canal_nalg, finrez_max_month, finrez_max_data = NEW().Dat_nalog_kanal()
+
+
         PROD_SVOD = pd.DataFrame()
         print("ОБНОВЛЕНИЕ СВОДНОЙ ПРОДАЖ")
         start = PUT_PROD
@@ -870,12 +858,13 @@ class PROGNOZ:
                 if ((file.split('.')[-1]) == 'txt'):
                     pyt_txt = os.path.join(rootdir, file)
                     PROD_SVOD_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', parse_dates=['дата'],skiprows=1,
-                                               dayfirst=True, names=("магазин","номенклатура","дата","количество_продаж",
-                                                                     "вес_продаж","Закуп товара общий, руб с НДС", "Выручка Итого, руб с НДС", "Наценка Общая, руб с НДС","СписРуб","Списания, кг"))
-
-
-                    PROD_SVOD_00 = PROD_SVOD_00.drop(["Списания, кг", "количество_продаж"], axis=1)
-                    lg = ("Выручка Итого, руб с НДС", "Наценка Общая, руб с НДС",  "СписРуб", "Закуп товара общий, руб с НДС")
+                                                names=("магазин","номенклатура","дата","количество_продаж",
+                                                                     "вес_продаж","Закуп товара общий, руб с НДС", "Выручка Итого, руб с НДС", "Наценка Общая, руб с НДС","операции списания", "СписРуб", "списруб_без_ндс"))
+                    print(pyt_txt)
+                    print(PROD_SVOD_00)
+                    PROD_SVOD_00["операции списания"] = PROD_SVOD_00["операции списания"].astype("category")
+                    PROD_SVOD_00 = PROD_SVOD_00.drop(["СписРуб", "количество_продаж"], axis=1)
+                    lg = ( "Наценка Общая, руб с НДС", "Закуп товара общий, руб с НДС","списруб_без_ндс")
                     for e in lg:
                         PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace("\xa0", "")
                         PROD_SVOD_00[e] = PROD_SVOD_00[e].str.replace(",", ".")
@@ -889,7 +878,7 @@ class PROGNOZ:
                         for x in PODAROK:
                             PROD_SVOD_00 = PROD_SVOD_00.loc[PROD_SVOD_00['номенклатура'] != x]
                     PROD_SVOD = pd.concat([PROD_SVOD, PROD_SVOD_00], axis=0)
-                gc.enable()
+
         # Создание столбцов Списания хозы и списания без хозов
         Hoz = RENAME().HOZY()
         mask = PROD_SVOD['номенклатура'].isin(Hoz)
@@ -944,6 +933,7 @@ class PROGNOZ:
         PROD_SVOD[okrugl] = PROD_SVOD[okrugl].round(2)
         # endregion
         DOC().to_TEMP(x=PROD_SVOD, name="Временный файл_продаж.csv")
+        gc.collect()
         return PROD_SVOD
     def Sales_prognoz(self):
         PROD_SVOD = pd.read_csv(PUT + "TEMP\\" + "Временный файл_продаж.csv",
@@ -1009,6 +999,6 @@ class PROGNOZ:
 #NEW().Stavka_nds_Kanal()
 #NEW().Finrez()
 #NEW().Obnovlenie_error()
-#NEW().Obnovlenie()
+NEW().Obnovlenie()
 #PROGNOZ().SALES_obrabotka()
 #PROGNOZ().Sales_prognoz()
