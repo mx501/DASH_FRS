@@ -4,7 +4,6 @@ from pandas.tseries.offsets import MonthBegin
 import os
 import pandas as pd
 from tqdm.auto import tqdm
-import openai
 import sys
 import math
 import gc
@@ -12,14 +11,13 @@ import requests
 # from memory_profiler import profile
 import numpy as np
 import calendar
+import bot_TELEGRAM as bot
 import winsound
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
 gc.enable()
 
 
-# Отправлять ли в группу вечеринка аналитиков Сообщения?
-BOT_ANALITIK = "n"
 
 # расположение данных home или work
 geo = "h"
@@ -85,253 +83,8 @@ class DOC:
     def to_exel(self, x, name):
         x.to_excel(PUT + "TEMP\\" + name, index=False)
 """функция сохранения файлов по папкам"""
-class BOT:
-    def bot_mes(self, mes):
-        # получение ключей
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
-        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
-        token = keys_dict.get('token')
-        test = keys_dict.get('test')
-        url = f'https://api.telegram.org/bot{token}/sendMessage'
-        # Параметры запроса для отправки сообщения
-        params = {'chat_id': test, 'text':mes}
-
-        # Отправка запроса на сервер Telegram для отправки сообщения
-        response = requests.post(url, data=params)
-        # Проверка ответа от сервера Telegram
-
-        if response.status_code == 200:
-            print('Сообщение успешно отправлено!')
-        else:
-            print(f'Произошла ошибка при отправке сообщения: {response.status_code}')
-            """отправка сообщений"""
-    def bot_mes_analitik(self, mes):
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
-        # Создаем словарь ключей
-        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
-        # Получаем значение по id
-        token = keys_dict.get('token')
-        analitik = keys_dict.get('analitik')
-
-        url = f'https://api.telegram.org/bot{token}/sendMessage'
-
-        # Параметры запроса для отправки сообщения
-        params = {'chat_id': analitik, 'text':mes}
-
-        # Отправка запроса на сервер Telegram для отправки сообщения
-        response = requests.post(url, data=params)
-        # Проверка ответа от сервера Telegram
-
-        if response.status_code == 200:
-            print('Сообщение успешно отправлено!')
-        else:
-            print(f'Произошла ошибка при отправке сообщения: {response.status_code}')
-    def bot_raschet(self):
-        # region ДЛЯ БОТА#######################################################################################################################
-
-
-        PROD_SVOD_BOT = PROD_SVOD[["дата", "магазин", "Выручка Итого, руб с НДС", "номенклатура", "СписРуб", "операции списания"]]
-
-        PROD_SVOD_BOT = PROD_SVOD_BOT.groupby(["дата", "магазин","номенклатура","операции списания"]).sum().reset_index()
-        # Удаление столбца списания так как он не нужен при дальнейших расчетах
-        BOT_NUM_HOZ = PROD_SVOD_BOT.loc[PROD_SVOD_BOT["операции списания"] == "Хозяйственные товары"]
-
-        # Группируем данные по номенклатуре и месяцу, чтобы получить среднее значение списания для каждого месяца.
-        monthly_mean = BOT_NUM_HOZ.groupby(['номенклатура', BOT_NUM_HOZ['дата'].dt.month])['СписРуб'].mean().reset_index()
-        monthly_mean.columns = ['номенклатура', 'месяц', 'mean']
-
-        # Объединяем полученные значения со всеми данными.
-        BOT_NUM_HOZ = pd.merge(BOT_NUM_HOZ, monthly_mean, on=['номенклатура', BOT_NUM_HOZ['дата'].dt.month], how='left')
-
-        # Рассчитываем отклонение текущего значения списания от среднемесячного.
-        BOT_NUM_HOZ['отклонение'] = (BOT_NUM_HOZ['СписРуб'] - BOT_NUM_HOZ['mean']) / BOT_NUM_HOZ['mean']
-
-        # Определяем аномалии как значения, отклонение которых больше чем на 20% от среднемесячного.
-        anomalies = BOT_NUM_HOZ[BOT_NUM_HOZ['отклонение'].abs() > 0.2]
-
-        # Выводим данные по аномалиям.
-        anomalies = anomalies[['дата', 'магазин', 'номенклатура', 'СписРуб']]
-        print(anomalies)
-
-        BOT_UNICK = 0
-        BOT_BEST = 0
-
-        BOT().to_day()
-        # endregion#########################################################################################################################
-
-    def to_day(self):
-        rng, replacements = RENAME().Rread()
-        # считываем данные из файла
-        PROD_SVOD = pd.read_csv(PUT + "TEMP\\" + "BOT_TEMP.csv", encoding="ANSI", sep=';', parse_dates=['дата'])
-        PROD_SVOD = PROD_SVOD.rename(columns={"Выручка Итого, руб с НДС": "Выручка","СписРуб": "Списания" })
-        print(PROD_SVOD)
-        PROD_SVOD_prmon = PROD_SVOD.copy()
-
-        PROD_SVOD["месяц"] = PROD_SVOD["дата"].dt.month
-        max_mes = PROD_SVOD["месяц"].max()
-
-        PROD_SVOD_prmon = PROD_SVOD.copy()
-
-        PROD_SVOD = PROD_SVOD.loc[PROD_SVOD["месяц"] == max_mes]
-        PROD_SVOD["день"] = PROD_SVOD["дата"].dt.day
-        max_day = PROD_SVOD["день"].max()
-
-        PROD_SVOD_prmon = PROD_SVOD_prmon.loc[PROD_SVOD_prmon["месяц"] == max_mes-1]
-        PROD_SVOD_prmon["день"] = PROD_SVOD_prmon["дата"].dt.day
-        PROD_SVOD_prmon = PROD_SVOD_prmon.loc[PROD_SVOD_prmon["день"] <= max_day]
-
-        PROD_SVOD_prmon = PROD_SVOD_prmon.rename(columns={"Выручка": "Выручка прошлый месяц", "Списания" :"Списания прошлый месяц"})
-
-
-        PROD_SVOD = pd.merge(PROD_SVOD, PROD_SVOD_prmon, on=['магазин', 'день'], how='left')
-        ren_mes = {
-            1: 'Январь',
-            2: 'Февраль',
-            3: 'Март',
-            4: 'Апрель',
-            5: 'Май',
-            6: 'Июнь',
-            7: 'Июль',
-            8: 'Август',
-            9: 'Сентябрь',
-            10: 'Октябрь',
-            11: 'Ноябрь',
-            12: 'Декабрь'}
-        PROD_SVOD.loc[:, 'месяц название'] = PROD_SVOD['дата_x'].dt.month.replace(ren_mes)
-        PROD_SVOD = PROD_SVOD.drop(columns={"дата_x","месяц_x","дата_y","месяц_y"})
-        ty  =  pd.read_excel("https://docs.google.com/spreadsheets/d/1rwsBEeK_dLdpJOAXanwtspRF21Z3kWDvruani53JpRY/export?exportFormat=xlsx")
-        ty = ty[["Название 1 С (для фин реза)","Менеджер"]]
-
-        for i in tqdm(range(rng), desc="ПереименованиеСписок ТУ - ", colour="#808080"): ty["Название 1 С (для фин реза)"] = \
-            ty["Название 1 С (для фин реза)"].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
-        ty = ty.rename(columns={"Название 1 С (для фин реза)": 'магазин'})
-
-        PROD_SVOD = pd.merge(PROD_SVOD, ty, on=['магазин'], how='left')
-
-        obshee = PROD_SVOD.groupby(["месяц название"], as_index=False) \
-            .aggregate({"Выручка":"sum","Списания":"sum" ,"Выручка прошлый месяц":"sum","Списания прошлый месяц":"sum"}) \
-            .sort_values("Выручка", ascending=False)
-
-        po_ty = PROD_SVOD.groupby(["Менеджер"], as_index=False) \
-            .aggregate({"Выручка":"sum","Списания":"sum" ,"Выручка прошлый месяц":"sum","Списания прошлый месяц":"sum"}) \
-            .sort_values("Выручка", ascending=False)
-
-        po_ty['Изменение выручки'] = pd.to_numeric(po_ty['Выручка']) - pd.to_numeric(po_ty['Выручка прошлый месяц'])
-        po_ty['Изменение расходов'] = pd.to_numeric(po_ty['Списания']) - pd.to_numeric(po_ty['Списания прошлый месяц'])
-        # Определение лучших и худших менеджеров:
-        best_manager = po_ty.loc[po_ty['Изменение выручки'] == po_ty['Изменение выручки'].max()]['Менеджер'].values[0]
-        worst_manager = po_ty.loc[po_ty['Изменение выручки'] == po_ty['Изменение выручки'].min()]['Менеджер'].values[0]
-
-        best_manager_spis = po_ty.loc[po_ty['Изменение расходов'] == po_ty['Изменение расходов'].max()]['Менеджер'].values[0]
-        worst_manager_spis = po_ty.loc[po_ty['Изменение расходов'] == po_ty['Изменение расходов'].min()]['Менеджер'].values[0]
-        #print(po_ty)
-
-        # Выручка Изменене к прошлому месяцу лучшего менеджера
-        izm_vit_best  = po_ty.loc[po_ty['Менеджер'] == best_manager]
-        izm_vit_best = izm_vit_best['Изменение выручки'].sum()
-        # Списания Изменене к прошлому месяцу лучшего менеджера
-        izm_spis_best = po_ty.loc[po_ty['Менеджер'] == best_manager_spis]
-        izm_spis_best = izm_spis_best['Изменение расходов'].sum()
-
-        # Выручка Изменене к прошлому месяцу худщего
-        izm_vit_hyd = po_ty.loc[po_ty['Менеджер'] == worst_manager]
-        izm_vit_hyd = izm_vit_hyd['Изменение выручки'].sum()
-        # Списания Изменене к прошлому месяцу лучшего менеджера
-        izm_spis_hyd = po_ty.loc[po_ty['Менеджер'] == worst_manager_spis]
-        izm_spis_hyd = izm_spis_hyd['Изменение расходов'].sum()
-
-        # Вывод результатов для менеджеров:
-        izm_spis_hyd = format(izm_spis_hyd, ',.2f').replace(',', ' ').replace('.', ',')
-        izm_spis_best = format(izm_spis_best, ',.2f').replace(',', ' ').replace('.', ',')
-        izm_vit_hyd = format(izm_vit_hyd, ',.2f').replace(',', ' ').replace('.', ',')
-        izm_vit_best  = format(izm_vit_best, ',.2f').replace(',', ' ').replace('.', ',')
-        mes_bot = \
-        ("   Менеджеры   \n"
-        f"💰 Выручка\n"
-        f"• Лидеры: {best_manager}\n"
-        f"• Изменене к прошлому месяцу: {izm_vit_best}\n"
-        f"• Чуть-чуть отстают: {worst_manager}\n"
-        f"• Изменене к прошлому месяцу: {izm_vit_hyd}\n"
-        f"\n"
-        f"💸 Списания\n"
-        f"• Лидеры: {worst_manager_spis}\n"
-        f"• Изменене к прошлому месяцу: {izm_spis_hyd}\n"
-        f"• Чуть-чуть отстают: {best_manager_spis}\n"
-        f"• Изменене к прошлому месяцу: {izm_spis_best}\n")
-        # подсчет колличества магазинов
-        MAG_CUNT = pd.read_csv(PUT + "TEMP\\" + "BOT\\Уникальные магазины.csv", encoding="ANSI", sep=';')
-        MAG_CUNT  = MAG_CUNT["магазин"].count()
-        MAG_CUNT  =(f"🛒 Количество магазинов сегодня:  {MAG_CUNT}")
-
-        BOT().bot_mes(mes=mes_bot)
-        BOT().bot_mes(mes=MAG_CUNT)
-        if BOT_ANALITIK == "y":
-            BOT().bot_mes_analitik(mes=mes_bot)
-            BOT().bot_mes_analitik(mes=MAG_CUNT)
-
-        return mes_bot
-    """ежедневное инфо"""
-    def open_ai(self):
-        df = BOT().to_day()
-        # region API_K
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
-        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
-        openai.api_key = keys_dict.get('API')
-        # endregion
-        def generate_table_description(df):
-            prompt = f"выведи количество отправленых и полученых токенов" \
-                     f":\n\n{df}\n\nна руском"
-            response = openai.Completion.create(
-                engine="text-curie-001",
-                prompt=prompt,
-                max_tokens=1024,
-                n=1,
-                stop=None,
-                temperature=0.5,)
-
-            description = response.choices[0].text.strip()
-            return description
-
-        # Расчет разницы между текущим и прошлым месяцем:
-        df['Изменение выручки'] = pd.to_numeric(df['Выручка']) - pd.to_numeric(df['Выручка прошлый месяц'])
-        df['Изменение расходов'] = pd.to_numeric(df['Списания']) - pd.to_numeric(df['Списания прошлый месяц'])
-
-        # Определение лучших и худших менеджеров:
-        best_manager = df.loc[df['Изменение выручки'] == df['Изменение выручки'].max()]['Менеджер'].values[0]
-        worst_manager = df.loc[df['Изменение выручки'] == df['Изменение выручки'].min()]['Менеджер'].values[0]
-
-        # Генерация описания таблицы:
-        description = response.choices[0].text
-
-        # Вывод результатов:
-        print(description)
-        print('\n')
-        print(f"Best Manager: {best_manager}")
-        print(f"Worst Manager: {worst_manager}")
-    def open_ai_curi(self):
-        mes_bot = BOT().to_day()
-        # region API_K
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
-        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
-        openai.api_key = keys_dict.get('API')
-        # endregion
-        # Определение текста запроса
-        request = mes_bot
-        # Форматирование текста
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=(f"Составь сообщение для телеграм, примени форматирование красивое, для худших красные смацлы для лудших зеленые:\n{request}\n\n"),
-            max_tokens=1000,
-            temperature = 0.5)
-        # Получение отформатированного текста
-        formatted_text = response.choices[0].text.strip()
-
-        # Вывод отформатированного текста
-        BOT().bot_mes(mes=formatted_text)
-
-    """Автоописание"""
-"""Бот телеграм"""
-#BOT().bot_mes(mes="тест")
+#BOT().open_ai_curi()
+"""Автоописание"""
 class NEW:
     def STATYA(self):
         STATYA = pd.read_excel(PUT + "DATA_2\\" + "@СПРАВОЧНИК_СТАТЕЙ.xlsx",
@@ -800,7 +553,8 @@ class NEW:
                         spisisania_ps = spisisania["СписРуб"].copy()
                         df_ps = df["Выручка"]
                         # Сообщешие в телеграм
-                        BOT().bot_mes(mes= new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
+                        print(new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
+                        #BOT().bot_mes(mes= new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
 
                     df.to_csv(path_to + god + "\\" + mon + "\\" + new_name + ".txt", encoding='utf-8', decimal=",", sep="\t",
                               index=False)  ##  сохраняет файл
@@ -830,7 +584,9 @@ class NEW:
                         ['Склад магазин.Наименование', 'Номенклатура', 'По дням', 'Количество продаж', 'ВесПродаж',
                          'Себестоимость',
                          'Выручка', 'Прибыль', 'СписРуб', 'Списания, кг']))
-                    god  = df['По дням'].dt.year.max()
+                    max_d  = df['По дням'].dt.day.max()
+                    max_d = pd.DataFrame({'max_day': [max_d]})
+                    DOC().to_TEMP(x=max_d, name="BOT\\data\\ini.csv")
                     # удаление лишних столбцов
                     df = df.drop(["СписРуб"], axis=1)
                     if 'Количество списания' in df.columns:
@@ -885,14 +641,13 @@ class NEW:
                         df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t", decimal=",", index=False)  ##  сохраняет файл
                         # ДЛЯ БОТА ТЕЛЕГРАМ
                         Vrem_dat = datetime.now().strftime('%d.%m.%Y %H:%M')
+
                         data_str = f"Дашборд обновлен: {Vrem_dat}\n"
-                        data_str += "Сумма продаж: {:,.2f}\n".format(df_ps.sum().round(2)).replace(",", " ").replace(".", ",")
-                        data_str += "Сумма списаний\n(с питанием и хоз): {:,.2f}\n".format(spisisania_ps.sum().round(2)).replace(",", " ").replace(".", ",")
-
-                        BOT().bot_mes(mes=data_str)
-                        if BOT_ANALITIK == "y":
-                            BOT().bot_mes_analitik(mes=data_str)
-
+                        data_str += "• Сумма продаж: {:,.2f}\n".format(df_ps.sum().round(2)).replace(",", " ").replace(".", ",")
+                        data_str += "• Сумма списаний\n(с питанием и хоз): {:,.2f}\n".format(spisisania_ps.sum().round(2)).replace(",", " ").replace(".", ",")
+                        total_memory_usage = df.memory_usage(deep=True).sum()
+                        print("Total memory usage: {:.2f} MB".format(total_memory_usage / 1e6))
+                        bot.BOT().bot_mes(mes=data_str)
                         bot_t = pd.DataFrame()
 
                         # очистка памяти
@@ -1056,8 +811,6 @@ class NEW:
 class PROGNOZ:
     def SALES_obrabotka(self):
         gc.collect()
-        Dat_canal_nalg, finrez_max_month, finrez_max_data = NEW().Dat_nalog_kanal()
-        nds = NEW().Stavka_nds_Kanal()
         PROD_SVOD = pd.DataFrame()
         print("ОБНОВЛЕНИЕ СВОДНОЙ ПРОДАЖ")
         start = PUT_PROD
@@ -1069,6 +822,7 @@ class PROGNOZ:
                                                 names=("магазин","номенклатура","дата","количество_продаж",
                                                                      "вес_продаж","Закуп товара общий, руб с НДС", "Выручка Итого, руб с НДС",
                                                 "Наценка Общая, руб с НДС","операции списания", "СписРуб", "списруб_с_ндс"))
+                    print(pyt_txt)
                     # выбор столбцов для прогнозирования
                     PROD_SVOD_00 = PROD_SVOD_00[["дата", "магазин", "номенклатура", "Выручка Итого, руб с НДС",
                                                  "Наценка Общая, руб с НДС", "Закуп товара общий, руб с НДС","операции списания","СписРуб","списруб_с_ндс"]]
@@ -1085,7 +839,7 @@ class PROGNOZ:
                                            .str.replace("\xa0", "")
                                            .str.replace(",", ".")
                                            .fillna("0")
-                                           .astype(float)
+                                           .astype("float32")
                                            .round(2))
                     PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
                                    "подарочная карта КМ 500 НОВАЯ",
@@ -1094,37 +848,50 @@ class PROGNOZ:
                         PROD_SVOD_00 = PROD_SVOD_00[~PROD_SVOD_00['номенклатура'].str.contains(x)]
 
                     PROD_SVOD = pd.concat([PROD_SVOD, PROD_SVOD_00], axis=0)
+                    PROD_SVOD_00["номенклатура"] = PROD_SVOD_00["номенклатура"].astype("category")
+                    PROD_SVOD_00 = pd.DataFrame()
+                    gc.collect()
         PROD_SVOD = PROD_SVOD.reset_index(drop=True)
         gc.collect()
         # region БОТ
-        PROD_SVOD_BOT = PROD_SVOD[["дата", "магазин", "Выручка Итого, руб с НДС", "номенклатура", "СписРуб", "операции списания"]]
-        PROD_SVOD = PROD_SVOD.drop(columns={"СписРуб"})
+        #PROD_SVOD_BOT = PROD_SVOD[["дата", "магазин", "Выручка Итого, руб с НДС", "номенклатура", "СписРуб", "операции списания"]]
+
         # сохраненние только хозы
-        BOT_NUM_HOZ = PROD_SVOD_BOT.loc[PROD_SVOD_BOT["операции списания"] == "Хозяйственные товары"]
+        BOT_NUM_HOZ = PROD_SVOD.loc[PROD_SVOD["операции списания"] == "Хозяйственные товары"]
         BOT_NUM_HOZ = BOT_NUM_HOZ.drop(columns={"Выручка Итого, руб с НДС","операции списания"})
         DOC().to_TEMP(x=BOT_NUM_HOZ,name="BOT\\BOT_Хозы.csv")
+        BOT_NUM_HOZ = pd.DataFrame()
         # сохоанение только потери
-        BOT_POTER = PROD_SVOD_BOT.loc[PROD_SVOD_BOT["операции списания"] == "ПОТЕРИ"]
+        BOT_POTER = PROD_SVOD.loc[PROD_SVOD["операции списания"] == "ПОТЕРИ"]
         BOT_POTER = BOT_POTER.drop(columns={"Выручка Итого, руб с НДС", "операции списания"})
         DOC().to_TEMP(x=BOT_POTER, name="BOT\\Потери.csv")
+        BOT_POTER = pd.DataFrame()
         # сохоанение только уникальные магазины
-        BOT_Mag_UNIK = PROD_SVOD_BOT["магазин"].unique()
+        BOT_Mag_UNIK = PROD_SVOD[["магазин", "дата"]]
+        max_date_un = BOT_Mag_UNIK[ "дата"].max()
+        BOT_NUM_HOZ = BOT_Mag_UNIK.loc[BOT_Mag_UNIK[ "дата"] == max_date_un]
+        BOT_Mag_UNIK = BOT_NUM_HOZ["магазин"].unique()
         BOT_Mag_UNIK = pd.DataFrame({'магазин': BOT_Mag_UNIK})
         DOC().to_TEMP(x=BOT_Mag_UNIK , name="BOT\\Уникальные магазины.csv")
+        OT_Mag_UNIK = pd.DataFrame()
         # для групировки о менеджерам
-        PROD_SVOD_BOT = PROD_SVOD_BOT [["дата", "магазин", "Выручка Итого, руб с НДС","СписРуб" ]]
+        PROD_SVOD_BOT = PROD_SVOD[["дата", "магазин", "Выручка Итого, руб с НДС","СписРуб" ]]
         PROD_SVOD_BOT = PROD_SVOD_BOT.groupby(["дата", "магазин"]).sum().reset_index()
         DOC().to_TEMP(x=PROD_SVOD_BOT, name="BOT_TEMP.csv")
+        PROD_SVOD_BOT = pd.DataFrame()
         BOT().to_day()
+
+        PROD_SVOD = PROD_SVOD.drop(columns={"СписРуб"})
         # end region
         # region ФИЛЬТРАЦИЯ ТАБЛИЦЫ > МАКС ДАТЫ Факта ФИНРЕЗА
+        Dat_canal_nalg, finrez_max_month, finrez_max_data = NEW().Dat_nalog_kanal()
         PROD_SVOD["месяц"] = PROD_SVOD["дата"]
         PROD_SVOD.loc[~PROD_SVOD["месяц"].dt.is_month_start, "месяц"] = PROD_SVOD["месяц"] - MonthBegin()
         PROD_SVOD["номер месяца"] = PROD_SVOD["дата"].dt.month
         PROD_SVOD = PROD_SVOD.loc[PROD_SVOD["номер месяца"] > finrez_max_month]
         PROD_SVOD = PROD_SVOD.reset_index(drop=True)
         # endregion
-
+        gc.collect()
         # Создание столбцов Затрат
         PROD_SVOD.loc[PROD_SVOD["операции списания"] ==  "Хозяйственные товары", "2.6. Хозяйственные товары" ] = PROD_SVOD["списруб_с_ндс"]
         PROD_SVOD.loc[PROD_SVOD["операции списания"] ==  "Питание сотрудников", "2.10. Питание сотрудников " ] = PROD_SVOD["списруб_с_ндс"]
@@ -1137,10 +904,9 @@ class PROGNOZ:
                       (PROD_SVOD["операции списания"] == "Питание сотрудников"), "2.5.1. Списание потерь (до ноября 19г НЕУ + Списание потерь)"] = PROD_SVOD["списруб_с_ндс"]
         PROD_SVOD = PROD_SVOD.drop(columns={"номенклатура", "списруб_с_ндс", "номер месяца", "дата"})
         PROD_SVOD = PROD_SVOD.rename(columns={"месяц": "дата"})
+        nds = NEW().Stavka_nds_Kanal()
         PROD_SVOD = PROD_SVOD.merge(nds, on=["магазин"], how="left")
-        print(PROD_SVOD)
-        print(nds)
-        PROD_SVOD['Выручка Итого, руб без НДС'] = 0
+        PROD_SVOD['Выручка Итого, руб без НДС'] = np.nan
         PROD_SVOD['2.5.2. НЕУ'] = PROD_SVOD["2.5.1. Списание потерь (до ноября 19г НЕУ + Списание потерь)"] * 0.15
         PROD_SVOD['2.9. Налоги'] = np.nan
         PROD_SVOD['2.4.Услуги банка'] = np.nan
@@ -1268,28 +1034,13 @@ class PROGNOZ:
     """функция за обработку данных"""
 """обработка пути продаж формирование, групировка таблиц"""
 
-"""BOT().bot_mes_analitik(mes=f"Дашборд обновлен:\n"
-                  f"Добавлена новая страница:\n"
-                  f"СПИСАНИЯ\n"
-                  f"На новой странице можно посмотреть\n"
-                  f"Списания по статьям\n"
-                  f"    - Потери\n"
-                  f"    - Кражи\n"
-                  f"    - Питание персонала\n"
-                  f"    - Маркетинг\n"
-                  f"    - Подарок покупателю(бонусы)\n"
-                  f"    - Подарок покупателю(Сервисная фишка)\n"
-                  f"    - Хозы\n"
-                  f"Все можно отслеживать по дням, неделям\n"
-                  f"месяцам, кварталам и годам\n\n"
-                  f"Пока что все.")"""
-"""оотправка сообщения в группу аналитик"""
+
 
 #NEW().Stavka_nds_Kanal()
 #NEW().Finrez()
 #NEW().Obnovlenie_error()
-#NEW().Obnovlenie()
-BOT().to_day()
-#BOT().open_ai_curi()
+NEW().Obnovlenie()
 #PROGNOZ().SALES_obrabotka()
+#BOT().to_day()
 #PROGNOZ().Sales_prognoz()
+
