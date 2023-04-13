@@ -1,3 +1,4 @@
+
 from pandas.tseries.offsets import DateOffset
 from datetime import datetime, timedelta, time
 from pandas.tseries.offsets import MonthBegin
@@ -20,7 +21,7 @@ gc.enable()
 
 
 # расположение данных home или work
-geo = "h"
+geo = "w"
 if geo == "h":
     # основной каталог расположение данных дашборда
     PUT = "D:\\Python\\Dashboard\\"
@@ -576,6 +577,7 @@ class NEW:
         if HISTORY == "y" :
             NEW().History()
         rng, replacements = RENAME().Rread()
+        l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
         for rootdir, dirs, files in os.walk(PUT + "NEW\\"):
             for file in files:
                 if ((file.split('.')[-1]) == 'txt'):
@@ -583,76 +585,79 @@ class NEW:
                     df = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', parse_dates=['По дням'], dayfirst=True, skiprows=3, names=(
                         ['Склад магазин.Наименование', 'Номенклатура', 'По дням', 'Количество продаж', 'ВесПродаж',
                          'Себестоимость',
-                         'Выручка', 'Прибыль', 'СписРуб', 'Списания, кг']))
-                    max_d  = df['По дням'].dt.day.max()
-                    max_d = pd.DataFrame({'max_day': [max_d]})
-                    DOC().to_TEMP(x=max_d, name="BOT\\data\\ini.csv")
-                    # удаление лишних столбцов
-                    df = df.drop(["СписРуб"], axis=1)
-                    if 'Количество списания' in df.columns:
-                        df = df.drop('Количество списания', axis=1)
-                    if 'Списания, кг' in df.columns:
-                        df = df.drop('Списания, кг', axis=1)
+                         'Выручка', 'Прибыль']))
+                    max_sales = df['По дням'].max().strftime('%Y-%m-%d')
+                    min_sales = df['По дням'].min().strftime('%Y-%m-%d')
+                    # чистка мусора продажи
+                    df["Выручка"] = df["Выручка"].str.replace(',', '.')
+                    df["Выручка"] = df["Выручка"].str.replace('\xa0', '')
+                    df["Выручка"] = df["Выручка"].astype("float")
+                    # так как столбец списаний удален то убрать пустые строки
+                    df = df.loc[df["Выручка"] > 0]
+                    for w in l_mag:
+                        df = df[~df['Склад магазин.Наименование'].str.contains(w)]
+                    print(df)
                     # переименовние магазинв
                     for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): df[
                         'Склад магазин.Наименование'] = \
                         df['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
-
                     # Обработка файла списания
                     # открывает аналогичный года по маке файла продаж
                     file_s = PUT + "Списания\\Текущий месяц\\"
+                    spisisania = None
                     for files in os.listdir(file_s):
-                        print(files)
+
                         spisisania = pd.read_csv(file_s+files, sep="\t", encoding='utf-8', skiprows=7, parse_dates=['По дням'], dayfirst=True,
                                                  names=("Склад магазин.Наименование", "Номенклатура", 'По дням', "операции списания", "СписРуб", "списруб_без_ндс"))
+                        for w in l_mag:
+                            spisisania = spisisania[~spisisania['Склад магазин.Наименование'].str.contains(w)]
+                        print(spisisania)
                         # переименование магазинов
                         for i in tqdm(range(rng), desc="Переименование тт Списания - ", colour="#808080"): spisisania[
                             'Склад магазин.Наименование'] = \
                             spisisania['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
                         # Фильтрация файла списания меньше или равно файлам продаж дaта
-                        max_sales = df['По дням'].max()
-                        min_sales = df['По дням'].min()
+
                         spisisania = spisisania.loc[(spisisania['По дням'] <= max_sales) & (spisisania['По дням'] >= min_sales)]
                         # убрать строку итого
                         spisisania = spisisania.loc[spisisania["Склад магазин.Наименование"] != "Итого"]
-                        # чистка мусора продажи
-                        df["Выручка"] = df["Выручка"].str.replace(',', '.')
-                        df["Выручка"] = df["Выручка"].str.replace('\xa0', '')
-                        df["Выручка"] = df["Выручка"].astype("float")
-                        # так как столбец списаний удален то убрать пустые строки
-                        df = df.loc[df["Выручка"] > 0]
                         # чистка мусора списания
                         spisisania["СписРуб"] = spisisania["СписРуб"].str.replace(',', '.')
                         spisisania["СписРуб"] = spisisania["СписРуб"].str.replace('\xa0', '')
                         spisisania["СписРуб"] = spisisania["СписРуб"].astype("float")
                         spisisania = spisisania.loc[spisisania["СписРуб"] > 0]
                         # Для сверки итоговых значений после слияния столбца результатты до слияния
-                        spisisania_do = spisisania["СписРуб"].copy()
-                        df_do = df["Выручка"].copy()
-                        # обьеденение таблиц списания и продаж
-                        df = pd.concat([df, spisisania], axis=0)
-                        # лог
-                        max_sales = df['По дням'].max()
-                        min_sales = df['По дням'].min()
-                        # лог Для сверки итоговых значений после слияния столбца результатты после слияния
-                        spisisania_ps = spisisania["СписРуб"].copy()
-                        df_ps = df["Выручка"].copy()
-                        # сохранение файла
-                        df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t", decimal=",", index=False)  ##  сохраняет файл
-                        # ДЛЯ БОТА ТЕЛЕГРАМ
-                        Vrem_dat = datetime.now().strftime('%d.%m.%Y %H:%M')
+                    spisisania_do = spisisania["СписРуб"].copy()
+                    df_do = df["Выручка"].copy()
+                    # обьеденение таблиц списания и продаж
+                    df = pd.concat([df, spisisania], axis=0)
+                    # лог
+                    max_sales = df['По дням'].max()
+                    min_sales = df['По дням'].min()
+                    # лог Для сверки итоговых значений после слияния столбца результатты после слияния
+                    spisisania_ps = spisisania["СписРуб"].copy()
+                    df_ps = df["Выручка"].copy()
+                    # сохранение файла
+                    df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t", decimal=",", index=False)
+                    df.to_csv("P:\\Фирменная розница\\ФРС\\Данные из 1 С\\Продажи, Списания, Прибыль\\Текущий год\\" + file, encoding='utf-8', sep="\t", decimal=",", index=False)
+                    ##  сохраняет файл
+                    # ДЛЯ БОТА ТЕЛЕГРАМ
+                    Vrem_dat = datetime.now().strftime('%d.%m.%Y %H:%M')
 
-                        data_str = f"Дашборд обновлен: {Vrem_dat}\n"
-                        data_str += "• Сумма продаж: {:,.2f}\n".format(df_ps.sum().round(2)).replace(",", " ").replace(".", ",")
-                        data_str += "• Сумма списаний\n(с питанием и хоз): {:,.2f}\n".format(spisisania_ps.sum().round(2)).replace(",", " ").replace(".", ",")
-                        total_memory_usage = df.memory_usage(deep=True).sum()
-                        print("Total memory usage: {:.2f} MB".format(total_memory_usage / 1e6))
-                        bot.BOT().bot_mes(mes=data_str)
-                        bot_t = pd.DataFrame()
+                    data_str = f"Дашборд обновлен: {Vrem_dat}\n"
+                    data_str += "• Сумма продаж: {:,.2f}\n".format(df_ps.sum().round(2)).replace(",", " ").replace(".", ",")
+                    data_str += "• Сумма списаний\n(с питанием и хоз): {:,.2f}\n".format(spisisania_ps.sum().round(2)).replace(",", " ").replace(".", ",")
+                    total_memory_usage = df.memory_usage(deep=True).sum()
+                    print("Total memory usage: {:.2f} MB".format(total_memory_usage / 1e6))
+                    bot.BOT().bot_mes(mes=data_str)
+                    #bot.BOT().bot_mes(mes=data_str)
+                    bot_t = pd.DataFrame()
 
-                        # очистка памяти
-                        spisisania = pd.DataFrame()
-                        df = pd.DataFrame()
+                    # очистка памяти
+                    del spisisania
+                    del df
+                    del df_ps
+                    del spisisania_ps
 
                 if ((file.split('.')[-1]) == 'xlsx'):
                     pyt_excel = os.path.join(rootdir, file)
@@ -879,7 +884,7 @@ class PROGNOZ:
         PROD_SVOD_BOT = PROD_SVOD_BOT.groupby(["дата", "магазин"]).sum().reset_index()
         DOC().to_TEMP(x=PROD_SVOD_BOT, name="BOT_TEMP.csv")
         PROD_SVOD_BOT = pd.DataFrame()
-        BOT().to_day()
+        #BOT().to_day()
 
         PROD_SVOD = PROD_SVOD.drop(columns={"СписРуб"})
         # end region
@@ -1043,4 +1048,3 @@ NEW().Obnovlenie()
 #PROGNOZ().SALES_obrabotka()
 #BOT().to_day()
 #PROGNOZ().Sales_prognoz()
-
