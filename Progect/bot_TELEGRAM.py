@@ -1,18 +1,15 @@
-from pandas.tseries.offsets import DateOffset
-from datetime import datetime, timedelta, time,date
-from pandas.tseries.offsets import MonthBegin
+import logging
+import time
+from io import BytesIO
 import os
 import pandas as pd
 from tqdm.auto import tqdm
 import openai
-import sys
-import math
+
 import gc
 import requests
-# from memory_profiler import profile
-import numpy as np
-import calendar
-import winsound
+import telegram
+
 
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
@@ -29,6 +26,8 @@ gc.enable()
 # Отправлять ли в группу вечеринка аналитиков Сообщения?
 BOT_ANALITIK = "n"
 BOT_RUK_FRS = "n"
+# пересчитать данные
+DATA = "n"
 
 # region расположение данных home или work
 geo = "w"
@@ -46,6 +45,7 @@ else:
     PUT_CHEK = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\ЧЕКИ\\2023\\"
     PUT_BOT = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\"
 # endregion
+
 class RENAME:
     def Rread(self):
         replacements = pd.read_excel(PUT + "DATA_2\\ДЛЯ ЗАМЕНЫ.xlsx",
@@ -60,11 +60,41 @@ class RENAME:
         return Spisania_HOZI
     '''блок хозы'''
 """Переименовать магазины"""
+
 class DOC:
 
     def to_CSV(self, x, name):
         x.to_csv(PUT + "TEMP\\BOT\\data\\" + name, encoding="utf-8", sep=';',
                  index=False, decimal='.')
+class OPENAI:
+    def open_ai(self):
+        # region API_K
+        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
+        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
+        openai.api_key = keys_dict.get('API')
+        # endregion
+    def open_ai_curi(self, mes):
+        #mes_bot = BOT().to_day()
+        # region API_K
+        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
+        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
+        openai.api_key = keys_dict.get('API')
+        # endregion
+        # Определение текста запроса
+        request = mes
+        #request = mes_bot
+        # Форматирование текста
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=(f"сделай красивое оформление дя сообщения телеграм бота учти что списание это группа хозы  дегустации и потери это подгруппа списания:\n{request}\n\n"),
+            max_tokens=500,
+            temperature = 0.5)
+        # Получение отформатированного текста
+        formatted_text = response.choices[0].text.strip()
+
+        # Вывод отформатированного текста
+        BOT().bot_mes(mes=formatted_text)
+        print(formatted_text)
 class BOT:
     def bot_mes(self, mes):
         # получение ключей
@@ -112,91 +142,222 @@ class BOT:
                 print(f'Ошибка при отправке Группа руководители: {response.status_code}')
     """отправка сообщений"""
     def bot_raschet(self):
-        # region Сбор данных
-        # вычисление максимальной даты
-        max_date = pd.Timestamp('1900-01-01')
-        for root, dirs, files in os.walk(PUT_BOT):
-            for file in files:
-                if file.endswith('.txt'):  # проверяем только csv файлы
-                    filepath = os.path.join(root, file)
-                    df = pd.read_csv(filepath, delimiter='\t',  encoding="utf-8", parse_dates=['По дням'], usecols=[ 'По дням'])
-                    max_date = max(max_date, pd.to_datetime(df['По дням'], errors='coerce').max())
-                    print(max_date)
-                    del df
-        max_year = max_date.year
-        max_mounth = max_date.month
-        max_day = max_date.day
-        # Список всех файлов в папке и подпапках
-        all_files = []
-        for root, dirs, files in os.walk(PUT_BOT):
-            if max_year-1 in dirs:
-                dirs.remove("2021")
-            for file in files:
-                all_files.append(os.path.join(root, file))
+        if DATA=="y":
+            # Обновление данных
+            # вычисление максимальной даты
+            max_date = pd.Timestamp('1900-01-01')
+            for root, dirs, files in os.walk(PUT_BOT):
+                for file in files:
+                    if file.endswith('.txt'):  # проверяем только csv файлы
+                        filepath = os.path.join(root, file)
+                        df = pd.read_csv(filepath, delimiter='\t',  encoding="utf-8", parse_dates=['По дням'], usecols=[ 'По дням'])
+                        max_date = max(max_date, pd.to_datetime(df['По дням'], errors='coerce').max())
+                        print(max_date)
+                        del df
+            max_year = max_date.year
+            max_mounth = max_date.month
+            max_day = max_date.day
+            # Список всех файлов в папке и подпапках
+            all_files = []
+            for root, dirs, files in os.walk(PUT_BOT):
+                if max_year-1 in dirs:
+                    dirs.remove("2021")
+                for file in files:
+                    all_files.append(os.path.join(root, file))
+            # Список таблиц с данными за текущий месяц
+            df_bot_1 = pd.DataFrame()
+            for file in all_files:
+                df = pd.read_csv(file, encoding="utf-8",
+                                 sep='\t',
+                                 parse_dates=['По дням'],
+                                 usecols=['Склад магазин.Наименование', 'Номенклатура', 'По дням', "Выручка", "операции списания", "СписРуб"],
+                                 low_memory=False, dtype={'операции списания': 'object', 'СписРуб': 'object'})
 
-        # Список таблиц с данными за текущий месяц
-        df_bot_1 = pd.DataFrame()
-        for file in all_files:
+                df = df.loc[(df['По дням'].dt.year == max_year - 1) & (df['По дням'].dt.month == max_mounth) & (df['По дням'].dt.day <= max_day) |
+                            (df['По дням'].dt.year == max_year) & (df['По дням'].dt.month == max_mounth - 1) & (df['По дням'].dt.day <= max_day) |
+                            (df['По дням'].dt.year == max_year) & (df['По дням'].dt.month == max_mounth)]
 
-            df = pd.read_csv(file, encoding="utf-8",
-                             sep='\t',
-                             parse_dates=['По дням'],
-                             usecols=['Склад магазин.Наименование', 'Номенклатура', 'По дням', "Выручка", "операции списания", "СписРуб"],
-                             low_memory=False, dtype={'операции списания': 'object', 'СписРуб': 'object'})
+                PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
+                           "подарочная карта КМ 500 НОВАЯ",
+                           "подарочная карта КМ 1000 НОВАЯ")
+                for x in PODAROK:
+                    df = df[~df['Номенклатура'].str.contains(x)]
+                df = df.drop(columns={"Номенклатура"})
 
-            df = df.loc[(df['По дням'].dt.year == max_year - 1) & (df['По дням'].dt.month == max_mounth) & (df['По дням'].dt.day <= max_day) |
-                        (df['По дням'].dt.year == max_year) & (df['По дням'].dt.month == max_mounth - 1) & (df['По дням'].dt.day <= max_day) |
-                        (df['По дням'].dt.year == max_year) & (df['По дням'].dt.month == max_mounth)]
-
-            PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
-                       "подарочная карта КМ 500 НОВАЯ",
-                       "подарочная карта КМ 1000 НОВАЯ")
-            for x in PODAROK:
-                df = df[~df['Номенклатура'].str.contains(x)]
-            df = df.drop(columns={"Номенклатура"})
-
-            l_mag = ("Микромаркет", "Экопункт", "Вендинг","Итого")
-            for w in l_mag:
-                df = df[~df['Склад магазин.Наименование'].str.contains(w)]
+                l_mag = ("Микромаркет", "Экопункт", "Вендинг","Итого")
+                for w in l_mag:
+                    df = df[~df['Склад магазин.Наименование'].str.contains(w)]
 
 
-            df["операции списания"] = df["операции списания"].fillna('продажа')
-            # выполнить действия для датафрейма
-            df_bot_1 = pd.concat([df_bot_1, df], axis=0, ignore_index=True)
-            print("обьеденение" + file)
-            del df
+                df["операции списания"] = df["операции списания"].fillna('продажа')
+                # выполнить действия для датафрейма
+                df_bot_1 = pd.concat([df_bot_1, df], axis=0, ignore_index=True)
+                print("обьеденение" + file)
+                del df
+            ln = ("Выручка",'СписРуб')
+            for e in ln:
+                df_bot_1[e] = (df_bot_1[e].astype(str)
+                               .str.replace("\xa0", "")
+                               .str.replace(",", ".")
+                               .fillna("0")
+                               .astype("float")
+                               .round(2))
 
-        ln = ("Выручка",'СписРуб')
-        for e in ln:
-            df_bot_1[e] = (df_bot_1[e].astype(str)
-                           .str.replace("\xa0", "")
-                           .str.replace(",", ".")
-                           .fillna("0")
-                           .astype("float")
-                           .round(2))
+            total_memory_usage = df_bot_1.memory_usage(deep=True).sum()
+            print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
 
-        total_memory_usage = df_bot_1.memory_usage(deep=True).sum()
-        print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
-        df_bot_1 = df_bot_1.groupby(['По дням', 'Склад магазин.Наименование', "операции списания"]).sum().reset_index()
-        df_bot_1 = df_bot_1.rename(columns={'Склад магазин.Наименование': 'магазин'})
-        # загрузка файла справочника териториалов
-        ty = pd.read_excel("https://docs.google.com/spreadsheets/d/1rwsBEeK_dLdpJOAXanwtspRF21Z3kWDvruani53JpRY/export?exportFormat=xlsx")
-        ty = ty[["Название 1 С (для фин реза)", "Менеджер"]]
+            df_bot_1 = df_bot_1.groupby(['По дням', 'Склад магазин.Наименование', "операции списания"]).sum().reset_index()
+            df_bot_1 = df_bot_1.rename(columns={'Склад магазин.Наименование': 'магазин'})
+            # загрузка файла справочника териториалов
+            ty = pd.read_excel("https://docs.google.com/spreadsheets/d/1rwsBEeK_dLdpJOAXanwtspRF21Z3kWDvruani53JpRY/export?exportFormat=xlsx")
+            ty = ty[["Название 1 С (для фин реза)", "Менеджер"]]
 
-        rng, replacements = RENAME().Rread()
-        for i in tqdm(range(rng), desc="ПереименованиеСписок ТУ - ", colour="#808080"): ty["Название 1 С (для фин реза)"] = \
-            ty["Название 1 С (для фин реза)"].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+            rng, replacements = RENAME().Rread()
+            for i in tqdm(range(rng), desc="ПереименованиеСписок ТУ - ", colour="#808080"): ty["Название 1 С (для фин реза)"] = \
+                ty["Название 1 С (для фин реза)"].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
 
-        ty = ty.rename(columns={"Название 1 С (для фин реза)": 'магазин'})
+            ty = ty.rename(columns={"Название 1 С (для фин реза)": 'магазин'})
 
-        df_bot_1 = pd.merge(df_bot_1, ty, on=['магазин'], how='left')
-        del ty
-        df_bot_1.to_csv(PUT + "TEMP\\BOT\\data\\test.csv", encoding="ANSI", sep=';',
-                        index=False, decimal='.')
+            df_bot_1 = pd.merge(df_bot_1, ty, on=['магазин'], how='left')
+            del ty
+            df_bot_1.to_csv(PUT + "TEMP\\BOT\\data\\test.csv", encoding="ANSI", sep=';',
+                            index=False, decimal='.')
 
-        total_memory_usage = df_bot_1.memory_usage(deep=True).sum()
-        print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
-        # endregion
+            total_memory_usage = df_bot_1.memory_usage(deep=True).sum()
+            print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
+            del df_bot_1
+        # чтение файла
+        df = pd.read_csv(PUT + "TEMP\\BOT\\data\\test.csv", sep=';', encoding="ANSI", parse_dates=['По дням'])
+
+        # получение списка териториалов
+        TY_LIST = df.iloc[1:, 5].unique().tolist()
+        print(df[:50])
+        # исключение из списка териториалов
+        TY_LIST = [item for item in TY_LIST if item not in ['закрыт', 'нет магазина']]
+        # максимальная дата, для фильтрация по последнему дню
+        max_date = df["По дням"].max()
+        max_date_m = df["По дням"].dt.month.max()
+        BOT().bot_mes(mes=f"🔷 Дашборд обнавлен:\n\n")
+        # переюлр списка списка териториалов для отправки результатов
+        for i in TY_LIST:
+            if BOT_RUK_FRS == "y":
+                time.sleep(30)
+
+
+            # Выручка за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_sales_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date)]["Выручка"].sum()
+            df_day_sales = '{:,.0f}'.format(df_day_sales_f).replace(',', ' ')
+            # Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date)]["СписРуб"].sum()
+            df_day_sp = '{:,.0f}'.format(df_day_sp_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_prosent =  df_day_sp_f /  df_day_sales_f
+            df_day_prosent = '{:,.2%}'.format(df_day_prosent).replace(',', ' ')
+            # Списания ПОТЕРИ ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_POTERY_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "ПОТЕРИ")]["СписРуб"].sum()
+            df_day_sp_POTERY = '{:,.0f}'.format(df_day_sp_POTERY_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_POTERY_prosent = df_day_sp_POTERY_f / df_day_sales_f
+            df_day_sp_POTERY_prosent = '{:,.2%}'.format(df_day_sp_POTERY_prosent).replace(',', ' ')
+
+            # Списания ПОТЕРИ ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_HOZ_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "Хозяйственные товары")]["СписРуб"].sum()
+            df_day_sp_HOZ = '{:,.0f}'.format(df_day_sp_HOZ_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_HOZ_prosent = df_day_sp_HOZ_f / df_day_sales_f
+            df_day_sp_HOZ_prosent = '{:,.2%}'.format(df_day_sp_HOZ_prosent).replace(',', ' ')
+
+            # Списания Дегустации ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_DEG_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "Дегустации")]["СписРуб"].sum()
+            df_day_sp_DEG = '{:,.0f}'.format(df_day_sp_DEG_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_DEG_prosent = df_day_sp_DEG_f / df_day_sales_f
+            df_day_sp_DEG_prosent = '{:,.2%}'.format(df_day_sp_DEG_prosent).replace(',', ' ')
+
+            # Списания ОСТАЛЬНОЕ ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_PROCH_f = df.loc[(df["Менеджер"] == i) &
+                                     (df["По дням"] == max_date) &
+                                     (df["операции списания"] != "Дегустации") &
+                                     (df["операции списания"] != "Хозяйственные товары") &
+                                     (df["операции списания"] != "ПОТЕРИ")]["СписРуб"].sum()
+            df_day_sp_PROCH = '{:,.0f}'.format(df_day_sp_PROCH_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_PROCH_prosent = df_day_sp_DEG_f / df_day_sales_f
+            df_day_sp_PROCH_prosent = '{:,.2%}'.format(df_day_sp_PROCH_f).replace(',', ' ')
+
+
+            # region условия
+            if df_day_sp_DEG_f<=0:
+                df_day_sp_DEG = "Дегустаций не было"
+                df_day_sp_DEG_prosent = "🛑"
+            # endregion
+            # region Переименование менеджеров
+
+            TY_LIST = i.replace('Турова  Анна Сергеевна', 'Турова А.С') \
+                .replace('Баранова Лариса Викторовна', 'Баранова Л.В') \
+                .replace('Геровский Иван Владимирович ', 'Геровский И.В') \
+                .replace('Изотов Вадим Валентинович', 'Изотов В.В') \
+                .replace('нет ТУ', 'Нет ТУ') \
+                .replace('Павлова Анна Александровна', 'Павлова А.А') \
+                .replace('Бедарева Наталья Геннадьевна', 'Бедарева Н.Г') \
+                .replace('Сергеев Алексей Сергеевич', 'Сергеев А.С') \
+                .replace('Карпова Екатерина Эдуардовна', 'Карпова Е.Э')
+            # endregion
+            """ren_mes = i.replace(1, 'Январь') \
+                        .replace(2, 'Февраль') \
+                        .replace(3, 'Март') \
+                        .replace(4, 'Апрель') \
+                        .replace(5, 'Май') \
+                        .replace(6, 'Июнь') \
+                        .replace(7, 'Июль') \
+                        .replace(8, 'Август') \
+                        .replace(9, 'Сентябрь') \
+                        .replace(10, 'Октябрь') \
+                        .replace(11, 'Ноябрь') \
+                        .replace(12, 'Декабрь')"""
+
+            BOT().bot_mes(mes=
+                          f" 🔹 Результаты прошлого дня:\n       • {max_date.strftime('%Y-%m-%d')}\n"
+                          f" 🔹 {TY_LIST } :\n\n"
+                          f" 💰 Выручка: {df_day_sales}\n"
+                          f" 💸 Списания: {df_day_sp} ({df_day_prosent})\n"
+                          f"       • Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})\n"
+                          f"       • Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})\n"
+                          f"       • Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})\n"
+                          f"       • Прочее: {df_day_sp_PROCH} ({df_day_sp_DEG_prosent})\n\n"
+                          #f" 🔹 Накапленный итог:\n       • {Апрель}\n"
+
+
+
+
+
+                          )
+
+
+
+
+            """mes =f"{TY_LIST} :\n"\
+            f" Результаты прошлого дня:\n\n"\
+            f" Выручка: {df_day_sales}\n"\
+            f" Списания: {df_day_sp} ({df_day_prosent})\n"\
+            f" Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})\n"\
+            f" Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})\n"\
+            f" Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})\n"\
+            f" Прочее: {df_day_sp_PROCH} ({df_day_sp_DEG_prosent})\n"
+            OPENAI().open_ai_curi(mes=mes)"""
+
+
+            del df_day_sales
+            del df_day_sp
+
+
+
+
+
+
+
+
+
 
         """ ln = ("Выручка",'СписРуб')
             for e in ln:
@@ -211,42 +372,31 @@ class BOT:
             print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
             # Вычисление максимального месяца
             max_month = df['По дням'].dt.month.max()
-
             # Вычисление количества дней в максимальном месяце
             #df = df.loc[['По дням'] =]
-
             # Вычисление прошлого месяца и года
             previous_month = datetime.now().month - 1
             previous_year = datetime.now().year - 1 if previous_month == 0 else datetime.now().year
-
             # Выборка данных, соответствующих условию
             condition = ((df['По дням'].dt.year == previous_year) & (df['По дням'].dt.month == previous_month)) | \
                         ((df['По дням'].dt.year == datetime.now().year) & (df['По дням'].dt.month == max_month) & (df['По дням'].dt.day <= max_month_days))
-
             df_filtered = df[condition].compute()
-
             # Добавление столбцов текущего месяца, прошлого месяца и прошлого года
             df_filtered['current_month'] = datetime.now().month
             df_filtered['previous_month'] = previous_month
             df_filtered['previous_year'] = previous_year
             # Добавление данных в список dask-таблиц
             dfs.append(df_filtered)
-
             #dfs.append(df_filtered)
-
             # выводим в гигабайтах
         # Соединение всех dask-таблиц в одну
         result = dd.concat(dfs)
         df_pd =result.compute()
-
         total_memory_usage = df_pd.memory_usage(deep=True).sum().compute()
         print("ВСЕГО Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
-
         df_pd= df_pd.groupby(['По дням', 'Склад магазин.Наименование']).sum().reset_index()
         # Преобразование dask-таблицы в pandas-таблицу и сохранение в файл
         #result.compute().DOC().to_CSV(x=result, name="test.csv")
-
-
         print(df_pd['По дням'].min())
         print(df_pd['По дням'].maxn())"""
         return
@@ -354,38 +504,9 @@ class BOT:
         BOT().bot_mes(mes=MAG_CUNT)
         return mes_bot
     """ежедневное инфо"""
-"""Бот телеграм"""
-class OPENAI:
-    def open_ai(self):
-        # region API_K
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
-        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
-        openai.api_key = keys_dict.get('API')
-        # endregion
-    def open_ai_curi(self):
-        #mes_bot = BOT().to_day()
-        # region API_K
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
-        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
-        openai.api_key = keys_dict.get('API')
-        # endregion
-        # Определение текста запроса
-        request = "Дашборд обновлен: Добавлена новая страница:СПИСАНИЯ На новой странице можно посмотреть " \
-                  "Списания по статьям- Потери- Кражи- Питание персонала- Маркетинг- " \
-                  "Подарок покупателю(бонусы)- Подарок покупателю(Сервисная фишка)- ХозыВсе можно отслеживать по дням, неделяммесяцам, кварталам и годам сортировать по менеджерам городам областям."
-        #request = mes_bot
-        # Форматирование текста
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=(f"Составь сообщение для телеграм, примени форматирование красивое строгом виде, в конце отформатируй и добавь что эта информация вам поможет сократить списания на магазинах и увеличить прибыль:\n{request}\n\n"),
-            max_tokens=500,
-            temperature = 0.5)
-        # Получение отформатированного текста
-        formatted_text = response.choices[0].text.strip()
 
-        # Вывод отформатированного текста
-        BOT().bot_mes(mes=formatted_text)
-        print(formatted_text)
+"""Бот телеграм"""
+
 
 
 """BOT().bot_mes_RUK_FRS(mes=
@@ -421,6 +542,5 @@ class OPENAI:
                   f"месяцам, кварталам и годам\n\n"
                   f"Пока что все.")"""
 """оотправка сообщения в группу аналитик"""
-
-
+#BOT().bot_mes(mes="https://pythonpip.ru/examples/kak-postroit-grafik-funktsii-na-python-pri-pomoschi-matplotlib")
 BOT().bot_raschet()
