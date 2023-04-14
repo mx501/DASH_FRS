@@ -242,17 +242,15 @@ class BOT:
         for i in TY_LIST:
             if BOT_RUK_FRS == "y":
                 time.sleep(30)
-
-
             # Выручка за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sales_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date)]["Выручка"].sum()
-            df_day_sales = '{:,.0f}'.format(df_day_sales_f).replace(',', ' ')
+            df_day_sales = '{:,.1f}'.format(df_day_sales_f).replace(',', ' ')
             # Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date)]["СписРуб"].sum()
             df_day_sp = '{:,.0f}'.format(df_day_sp_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_prosent =  df_day_sp_f /  df_day_sales_f
-            df_day_prosent = '{:,.2%}'.format(df_day_prosent).replace(',', ' ')
+            df_day_prosent = '{:,.1%}'.format(df_day_prosent).replace(',', ' ')
             # Списания ПОТЕРИ ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_POTERY_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "ПОТЕРИ")]["СписРуб"].sum()
             df_day_sp_POTERY = '{:,.0f}'.format(df_day_sp_POTERY_f).replace(',', ' ')
@@ -265,14 +263,14 @@ class BOT:
             df_day_sp_HOZ = '{:,.0f}'.format(df_day_sp_HOZ_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_HOZ_prosent = df_day_sp_HOZ_f / df_day_sales_f
-            df_day_sp_HOZ_prosent = '{:,.2%}'.format(df_day_sp_HOZ_prosent).replace(',', ' ')
+            df_day_sp_HOZ_prosent = '{:,.1%}'.format(df_day_sp_HOZ_prosent).replace(',', ' ')
 
             # Списания Дегустации ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_DEG_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "Дегустации")]["СписРуб"].sum()
             df_day_sp_DEG = '{:,.0f}'.format(df_day_sp_DEG_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_DEG_prosent = df_day_sp_DEG_f / df_day_sales_f
-            df_day_sp_DEG_prosent = '{:,.2%}'.format(df_day_sp_DEG_prosent).replace(',', ' ')
+            df_day_sp_DEG_prosent = '{:,.1%}'.format(df_day_sp_DEG_prosent).replace(',', ' ')
 
             # Списания ОСТАЛЬНОЕ ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_PROCH_f = df.loc[(df["Менеджер"] == i) &
@@ -283,7 +281,7 @@ class BOT:
             df_day_sp_PROCH = '{:,.0f}'.format(df_day_sp_PROCH_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_PROCH_prosent = df_day_sp_DEG_f / df_day_sales_f
-            df_day_sp_PROCH_prosent = '{:,.2%}'.format(df_day_sp_PROCH_f).replace(',', ' ')
+            df_day_sp_PROCH_prosent = '{:,.1%}'.format(df_day_sp_PROCH_f).replace(',', ' ')
 
 
             # region условия
@@ -324,16 +322,8 @@ class BOT:
                           f"       • Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})\n"
                           f"       • Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})\n"
                           f"       • Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})\n"
-                          f"       • Прочее: {df_day_sp_PROCH} ({df_day_sp_DEG_prosent})\n\n"
+                          f"       • Прочее: {df_day_sp_PROCH} ({df_day_sp_DEG_prosent})\n\n")
                           #f" 🔹 Накапленный итог:\n       • {Апрель}\n"
-
-
-
-
-
-                          )
-
-
 
 
             """mes =f"{TY_LIST} :\n"\
@@ -400,6 +390,54 @@ class BOT:
         print(df_pd['По дням'].min())
         print(df_pd['По дням'].maxn())"""
         return
+    """Обработка продаж формирование данных для Бота"""
+    def bot_mes_html(self, mes):
+        # получение ключей
+        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
+        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
+        token = keys_dict.get('token')
+        test = keys_dict.get('test')
+        analitik = keys_dict.get('analitik')
+        BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
+
+        # TEST ####################################################
+        url = f'https://api.telegram.org/bot{token}/sendMessage'
+        # Параметры запроса для отправки сообщения
+        params = {'chat_id': test, 'text': mes}
+        # Отправка запроса на сервер Telegram для отправки сообщения
+        response = requests.post(url, data=params)
+        # Проверка ответа от сервера Telegram
+        if response.status_code == 200:
+            print('Отправлено Test')
+        else:
+            print(f'Ошибка при отправке Test: {response.status_code}')
+
+        # Группа аналитик ##########################################
+        if BOT_ANALITIK == "y":
+            url = f'https://api.telegram.org/bot{token}/sendMessage'
+            # Параметры запроса для отправки сообщения
+            params = {'chat_id': analitik, 'text': mes}
+            # Отправка запроса на сервер Telegram для отправки сообщения
+            response = requests.post(url, data=params)
+            # Проверка ответа от сервера Telegram
+            if response.status_code == 200:
+                print('Отправлено Группа аналитик')
+            else:
+                print(f'Ошибка при отправке Группа аналитик: {response.status_code}')
+
+        # Группа руководители ##########################################
+        if BOT_RUK_FRS == "y":
+            url = f'https://api.telegram.org/bot{token}/sendMessage'
+            # Параметры запроса для отправки сообщения
+            params = {'chat_id': BOT_RUK_FRS, 'text': mes}
+            # Отправка запроса на сервер Telegram для отправки сообщения
+            response = requests.post(url, data=params)
+            # Проверка ответа от сервера Telegram
+            if response.status_code == 200:
+                print('Сообщение успешно отправлено!')
+            else:
+                print(f'Ошибка при отправке Группа руководители: {response.status_code}')
+    """отправка сообщений d в формате HTML"""
     def to_day(self):
         # считываем данные из файла
         PROD_SVOD = pd.read_csv(PUT + "TEMP\\" + "BOT_TEMP.csv", encoding="ANSI", sep=';', parse_dates=['дата'])
