@@ -54,7 +54,7 @@ class MEMORY:
         process = psutil.Process()
         memory_info = process.memory_info()
         total_memory_usage = memory_info.rss
-        print(x +" - Использование памяти программой: {:.2f} MB".format(total_memory_usage / 1024 / 1024))
+        print(x +" - Использование памяти: {:.2f} MB".format(total_memory_usage / 1024 / 1024))
 
 class RENAME:
     def Rread(self):
@@ -830,8 +830,7 @@ class NEW:
 
 
         # тестовый
-        DOC().to_TEMP(x=NDS, name="FINREZ_Nalog_Kanal_test.csv")
-        print("Сохранен - FINREZ_Nalog_Kanal_test.csv")
+        DOC().to_TEMP(x=NDS, name="\\Ставки НДС\\НДС.csv")
         return NDS
     '''отвечает за обьеденение ставок nds  в одну таблицу вычисление налога для упращенки'''
     def Royalty(self):
@@ -847,7 +846,6 @@ class PROGNOZ:
         PROD_SVOD = pd.DataFrame()
         # загрузка данных финреза
         Dat_canal_nalg, finrez_max_month, finrez_max_data = NEW().Dat_nalog_kanal()
-
         # Поиск файлов текущих продаж. Список всех файлов в папке и подпапках
         all_files = []
         for root, dirs, files in os.walk(PUT_PROD):
@@ -856,8 +854,8 @@ class PROGNOZ:
         # Загрузка файлов из списка
         PROD_SVOD = pd.DataFrame()
         for file in all_files:
-            print(file)
-            MEMORY().mem_total(x="Загрузка файлов из списка\n")
+            print("Отбор строк в файле больше даты финреза\n" + os.path.basename(file))
+            MEMORY().mem_total(x="")
             PROD_SVOD_00 = pd.read_csv(file, sep="\t", encoding='utf-8', parse_dates=['дата'], skiprows=1, low_memory=False,
                                        names=("магазин", "номенклатура", "дата", "количество_продаж",
                                               "вес_продаж", "Закуп товара общий, руб с НДС", "Выручка Итого, руб с НДС",
@@ -913,9 +911,11 @@ class PROGNOZ:
             .agg({"дата": "nunique"})
         PROD_SVOD_01 = PROD_SVOD_01.rename(columns={"дата":"факт отработанных дней"})
         PROD_SVOD = PROD_SVOD.merge(PROD_SVOD_01, on=["магазин", "месяц"], how="left")
+
         # удаление промежуточной таблицы
-        del PROD_SVOD_01
+        del PROD_SVOD_01,  Dat_canal_nalg, finrez_max_month, finrez_max_data
         gc.collect()
+
         # формирование таблицы по месяцам
         PROD_SVOD = PROD_SVOD.drop(columns={"дата"})
         PROD_SVOD = PROD_SVOD.rename(columns={"дата": "факт отработанных дней","месяц":"дата"})
@@ -958,7 +958,6 @@ class PROGNOZ:
 
         # добавление ставки ндс вычисление выручки без ндс
         nds = NEW().Stavka_nds_Kanal()
-        print(nds)
         PROD_SVOD = PROD_SVOD.merge(nds, on=["магазин","дата"], how="left")
         PROD_SVOD = PROD_SVOD.drop_duplicates()
         PROD_SVOD['Выручка Итого, руб без НДС'] = PROD_SVOD['Выручка Итого, руб с НДС'] * PROD_SVOD["ставка выручка ндс"]
@@ -968,26 +967,15 @@ class PROGNOZ:
         PROD_SVOD['2.4.Услуги банка'] = PROD_SVOD['Выручка Итого, руб с НДС'] * 0.0096
         PROD_SVOD["Закуп товара общий, руб без НДС"] = PROD_SVOD["Закуп товара общий, руб с НДС"] * PROD_SVOD['ставка закуп ндс']
         MEMORY().mem_total(x="Создание столбцов аналогичне финрезу\n")
-        del nds
-        gc.collect()
+        del grouped, sums, new_row, nds
         # добавление среднего роялти
         royalty = NEW().Royalty()
-        print(royalty)
-
-
-
-
-        # исключение столбцов ля округления
-        ne_col = ['дата', 'магазин', 'факт отработанных дней', 'режим налогообложения', 'канал', 'канал на последний закрытый период']
-        okrugl = [col for col in PROD_SVOD.columns if col not in ne_col]
-        # округление
-        PROD_SVOD[okrugl] = PROD_SVOD[okrugl].round(2)
-
-
-        MEMORY().mem_total(x="после удаления nds\n")
-        DOC().to_POWER_BI(x=PROD_SVOD, name="1.csv")
-
+        PROD_SVOD = PROD_SVOD.merge(royalty, on=["магазин"], how="left")
+        del royalty
         gc.collect()
+
+        DOC().to_POWER_BI(x=PROD_SVOD, name="1.csv")
+        MEMORY().mem_total(x="после удаления nds\n")
         return PROD_SVOD
     def Sales_prognoz(self):
         PROD_SVOD = pd.read_csv(PUT + "TEMP\\" + "Временный файл_продаж.csv",
