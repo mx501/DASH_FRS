@@ -119,7 +119,7 @@ class NEW:
         finrez_max_data['дата'] = finrez_max_data['дата'].dt.date
         finrez_max_data = finrez_max_data['дата'].max()
         finrez_max_data = pd.to_datetime(finrez_max_data)
-        print("получение списка каналов и режима налога, получение макс даты")
+        print("Вычисление максимальных дат финреза")
         return Dat_canal_nalg, finrez_max_month, finrez_max_data
     '''отвечает за загрузку данных каналов и режима налога, используется для вычисления максимальной и минимальной даты и месяца'''
     def Finrez(self):
@@ -693,7 +693,7 @@ class NEW:
     """Обновление данных ежедневное"""
     def NDS_vir(self):
         rng, replacements = RENAME().Rread()
-        print("Обновление данных выручки ндс\n")
+        print("вычисление ставки ндс выручки\n")
         vir_NDS = pd.DataFrame()
         for rootdir, dirs, files in os.walk(PUT + "ндс_выручка\\"):
             for file in files:
@@ -701,8 +701,7 @@ class NEW:
                     pyt_txt = os.path.join(rootdir, file)
                     vir_NDS_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=8,
                                              names=("магазин", "ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"))
-                    for i in tqdm(range(rng), desc="Переименование тт выручка ндс -" + file, ncols=120,
-                                  colour="#F8C9CE"):
+                    for i in range(rng):
                         vir_NDS_00["магазин"] = vir_NDS_00["магазин"].replace(replacements["НАЙТИ"][i],
                                                                               replacements["ЗАМЕНИТЬ"][i], regex=False)
                     date = file[0:len(file) - 4]
@@ -710,6 +709,7 @@ class NEW:
                     vir_NDS_00["дата"] = date
                     vir_NDS_00["дата"] = pd.to_datetime(vir_NDS_00["дата"], dayfirst=True)
                     vir_NDS = pd.concat([vir_NDS, vir_NDS_00], axis=0)
+                    del vir_NDS_00
         Ren = ["ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС"]
         for r in Ren:
             vir_NDS[r] = vir_NDS[r].str.replace(',', '.')
@@ -717,7 +717,7 @@ class NEW:
             vir_NDS[r] = vir_NDS[r].astype("float")
         vir_NDS["ставка выручка ндс"] = (vir_NDS["ПРОДАЖИ БЕЗ НДС"] / vir_NDS["ПРОДАЖИ С НДС"])
         vir_NDS["ПРОВЕРКАА"] = vir_NDS["ПРОДАЖИ С НДС"] * vir_NDS["ставка выручка ндс"]
-        gc.enable()
+        del rng, replacements, Ren
         return vir_NDS
     '''отвечает за загрузку данных для  расчета ставки выручки ндс'''
     """  def NDS_spisania(self):
@@ -782,7 +782,7 @@ class NEW:
     '''отвечает за загрузку данных для  расчета ставки питание с ндс'''
     def NDS_zakup(self):
         rng, replacements = RENAME().Rread()
-        print("Обновление данных закуп ндс\n")
+        print("Расчет ставки ндс закуп\n")
         Zakup = pd.DataFrame()
         for rootdir, dirs, files in os.walk(PUT + "ндс_закуп\\"):
             for file in files:
@@ -790,8 +790,7 @@ class NEW:
                     pyt_txt = os.path.join(rootdir, file)
                     Zakup_00 = pd.read_csv(pyt_txt, sep=";", encoding='ANSI', skiprows=1,
                                            names=("магазин", "ПРОДАЖИ С НДС", "ПРОДАЖИ БЕЗ НДС", 'ставка закуп ндс'))
-                    for i in tqdm(range(rng), desc="Переименование тт списания без хозов ндс -" + file, ncols=120,
-                                  colour="#F8C9CE"):
+                    for i in range(rng):
                         Zakup_00["магазин"] = Zakup_00["магазин"].replace(replacements["НАЙТИ"][i],
                                                                           replacements["ЗАМЕНИТЬ"][i],
                                                                           regex=False)
@@ -817,18 +816,18 @@ class NEW:
         NDS["хозы ставка ндс"] = 0.80
         NDS = NDS.merge(Zakup[["магазин", "дата", 'ставка закуп ндс']],
                         on=["магазин", "дата"], how="left")
+        del Zakup
         # добавление режима налогобложения для установки ставки на упраенку 1'''
         canal_nalog_maxdate = Dat_canal_nalg["дата"].max()
         canal_nalog = Dat_canal_nalg.loc[Dat_canal_nalg['дата'] == canal_nalog_maxdate]
         NDS = NDS.merge(
             Dat_canal_nalg[["магазин", 'режим налогообложения', 'канал', 'канал на последний закрытый период']],
             on=["магазин"], how="outer")
+        del Dat_canal_nalg, finrez_max_month, finrez_max_data
         NDS.loc[NDS['режим налогообложения'] == "упрощенка", ['ставка выручка ндс', "хозы ставка ндс",'ставка закуп ндс']] = [1, 1, 1]
         spisok_01 = ("Офис","Роялти ФРС","ФРС без затрат офиса","Франшиза без затрат офиса", "ФРС + Франшиза без затрат офиса","ИТОГО Розничная сеть")
         for i in spisok_01:
             NDS = NDS.loc[NDS["магазин"]!= i ]
-
-
         # тестовый
         DOC().to_TEMP(x=NDS, name="\\Ставки НДС\\НДС.csv")
         return NDS
@@ -854,7 +853,7 @@ class PROGNOZ:
         # Загрузка файлов из списка
         PROD_SVOD = pd.DataFrame()
         for file in all_files:
-            print("Отбор строк в файле больше даты финреза\n" + os.path.basename(file))
+            print("Фильтруется - " + os.path.basename(file))
             MEMORY().mem_total(x="")
             PROD_SVOD_00 = pd.read_csv(file, sep="\t", encoding='utf-8', parse_dates=['дата'], skiprows=1, low_memory=False,
                                        names=("магазин", "номенклатура", "дата", "количество_продаж",
@@ -966,7 +965,6 @@ class PROGNOZ:
         PROD_SVOD['2.9. Налоги'] = PROD_SVOD['Выручка Итого, руб с НДС'] * 0.01
         PROD_SVOD['2.4.Услуги банка'] = PROD_SVOD['Выручка Итого, руб с НДС'] * 0.0096
         PROD_SVOD["Закуп товара общий, руб без НДС"] = PROD_SVOD["Закуп товара общий, руб с НДС"] * PROD_SVOD['ставка закуп ндс']
-        MEMORY().mem_total(x="Создание столбцов аналогичне финрезу\n")
         del grouped, sums, new_row, nds
         # добавление среднего роялти
         royalty = NEW().Royalty()
@@ -975,7 +973,7 @@ class PROGNOZ:
         gc.collect()
 
         DOC().to_POWER_BI(x=PROD_SVOD, name="1.csv")
-        MEMORY().mem_total(x="после удаления nds\n")
+        MEMORY().mem_total(x="\n")
         return PROD_SVOD
     def Sales_prognoz(self):
         PROD_SVOD = pd.read_csv(PUT + "TEMP\\" + "Временный файл_продаж.csv",
