@@ -1,11 +1,11 @@
 import logging
 import time
+from datetime import datetime, timedelta
 from io import BytesIO
 import os
 import pandas as pd
 from tqdm.auto import tqdm
 import openai
-
 import gc
 import requests
 import telegram
@@ -25,7 +25,7 @@ gc.enable()
 
 # Отправлять ли в группу вечеринка аналитиков Сообщения?
 BOT_ANALITIK = "n"
-BOT_RUK_FRS = "n"
+BOT_RUK = "n"
 # пересчитать данные
 DATA = "n"
 
@@ -45,6 +45,10 @@ else:
     PUT_CHEK = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\ЧЕКИ\\2023\\"
     PUT_BOT = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\"
 # endregion
+class MEMORY:
+    def mem(self, x, text):
+        total_memory_usage = x.memory_usage(deep=True).sum()
+        print(text + " - Использовано памяти: {:.2f} MB".format(total_memory_usage / 1e6))
 
 class RENAME:
     def Rread(self):
@@ -66,6 +70,7 @@ class DOC:
     def to_CSV(self, x, name):
         x.to_csv(PUT + "TEMP\\BOT\\data\\" + name, encoding="utf-8", sep=';',
                  index=False, decimal='.')
+"""Сохранение файлов"""
 class OPENAI:
     def open_ai(self):
         # region API_K
@@ -86,7 +91,7 @@ class OPENAI:
         # Форматирование текста
         response = openai.Completion.create(
             engine="text-davinci-003",
-            prompt=(f"сделай красивое оформление дя сообщения телеграм бота учти что списание это группа хозы  дегустации и потери это подгруппа списания:\n{request}\n\n"),
+            prompt=(f"составь красивое сообщение для телеграм:\n{request}\n\n"),
             max_tokens=500,
             temperature = 0.5)
         # Получение отформатированного текста
@@ -95,6 +100,30 @@ class OPENAI:
         # Вывод отформатированного текста
         BOT().bot_mes(mes=formatted_text)
         print(formatted_text)
+    def GTPchat(self, mes):
+        #mes_bot = BOT().to_day()
+        # region API_K
+        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
+        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
+        openai.api_key = keys_dict.get('API')
+        # endregion
+        # Определение текста запроса
+        request = mes
+        #request = mes_bot
+        # Форматирование текста
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=(f"составь красивое сообщение для телеграм:\n{request}\n\n"),
+            max_tokens=500,
+            temperature = 0.5)
+        # Получение отформатированного текста
+        formatted_text = response.choices[0].text.strip()
+
+        # Вывод отформатированного текста
+        BOT().bot_mes(mes=formatted_text)
+        print(formatted_text)
+
+"""запрос к базе опен ai"""
 class BOT:
     def bot_mes(self, mes):
         # получение ключей
@@ -194,6 +223,7 @@ class BOT:
                 df_bot_1 = pd.concat([df_bot_1, df], axis=0, ignore_index=True)
                 print("обьеденение" + file)
                 del df
+            print(df_bot_1)
             ln = ("Выручка",'СписРуб')
             for e in ln:
                 df_bot_1[e] = (df_bot_1[e].astype(str)
@@ -202,10 +232,6 @@ class BOT:
                                .fillna("0")
                                .astype("float")
                                .round(2))
-
-            total_memory_usage = df_bot_1.memory_usage(deep=True).sum()
-            print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
-
             df_bot_1 = df_bot_1.groupby(['По дням', 'Склад магазин.Наименование', "операции списания"]).sum().reset_index()
             df_bot_1 = df_bot_1.rename(columns={'Склад магазин.Наименование': 'магазин'})
             # загрузка файла справочника териториалов
@@ -223,71 +249,147 @@ class BOT:
             df_bot_1.to_csv(PUT + "TEMP\\BOT\\data\\test.csv", encoding="ANSI", sep=';',
                             index=False, decimal='.')
 
-            total_memory_usage = df_bot_1.memory_usage(deep=True).sum()
-            print("Использовано памяти: {:.2f} GB".format(total_memory_usage / 1e9))
+            MEMORY().mem(x=df_bot_1, text="1")
             del df_bot_1
-        # чтение файла
+            gc.collect()
+        # Чтение файла
         df = pd.read_csv(PUT + "TEMP\\BOT\\data\\test.csv", sep=';', encoding="ANSI", parse_dates=['По дням'])
-
         # получение списка териториалов
         TY_LIST = df.iloc[1:, 5].unique().tolist()
-        print(df[:50])
+        #print(df[:50])
         # исключение из списка териториалов
         TY_LIST = [item for item in TY_LIST if item not in ['закрыт', 'нет магазина']]
-        # максимальная дата, для фильтрация по последнему дню
+
+        # ОПЕРАЦИИ С ДАТАМИ
+        # определение максимальной даты приведение в формат
         max_date = df["По дням"].max()
-        max_date_m = df["По дням"].dt.month.max()
-        BOT().bot_mes(mes=f"🔷 Дашборд обнавлен:\n\n")
-        # переюлр списка списка териториалов для отправки результатов
+        max_date_str = max_date.strftime('%Y-%m-%d')
+        # определение максимального дня название переименование в руские названия
+        weekday = datetime.strptime(max_date_str, '%Y-%m-%d').strftime('%A')
+        weekday_perevod= {
+            'Monday': 'Понедельник',
+            'Tuesday': 'Вторник',
+            'Wednesday': 'Среда',
+            'Thursday': 'Четверг',
+            'Friday': 'Пятница',
+            'Saturday': 'Суббота',
+            'Sunday': 'Воскресенье'}
+        weekday = weekday_perevod.get(weekday, 'День недели не найден')
+        # определение максимального месяца
+        df["месяц"] = df["По дням"].dt.month
+        max_date_mounth =df["месяц"].max()
+        # определение максимального года
+        df["год"] = df["По дням"].dt.year
+        max_date_year = df["год"].max()
+
+        filter_date_day = (df["По дням"] == max_date)
+        podpis_mes = "Результаты прошлого дня:"
+        date_day ="   • " + max_date.strftime("%Y-%m-%d")
+        if weekday == 'Воскресенье':
+            filter_date_day = (df["По дням"] <= max_date) & (df["По дням"] >= df["По дням"].max() - pd.Timedelta(days=1))
+            podpis_mes = "Результаты прошедших выходных:"
+            min_date = df["По дням"].max() - pd.Timedelta(days=1)
+            date_day = "    • " + min_date.strftime("%Y-%m-%d") +" • "+ max_date.strftime("%Y-%m-%d")
+
+        """ВЫЧИСЛЕНИЯ ДЛЯ ПРОШЛОГО ДНЯ"""
         for i in TY_LIST:
-            if BOT_RUK_FRS == "y":
-                time.sleep(30)
+            if BOT_RUK == "y":
+                time.sleep(10)
             # Выручка за прошлый день ///добавить если макс воскресенье то брать 2 дня
-            df_day_sales_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date)]["Выручка"].sum()
-            df_day_sales = '{:,.1f}'.format(df_day_sales_f).replace(',', ' ')
+            df_day_sales_f = df.loc[(df["Менеджер"] == i) & filter_date_day]["Выручка"].sum()
+            df_day_sales = '{:,.0f}'.format(df_day_sales_f).replace(',', ' ')
             # Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
-            df_day_sp_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date)]["СписРуб"].sum()
+            df_day_sp_f = df.loc[(df["Менеджер"] == i) & filter_date_day]["СписРуб"].sum()
             df_day_sp = '{:,.0f}'.format(df_day_sp_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_prosent =  df_day_sp_f /  df_day_sales_f
             df_day_prosent = '{:,.1%}'.format(df_day_prosent).replace(',', ' ')
             # Списания ПОТЕРИ ///добавить если макс воскресенье то брать 2 дня
-            df_day_sp_POTERY_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "ПОТЕРИ")]["СписРуб"].sum()
+            df_day_sp_POTERY_f = df.loc[(df["Менеджер"] == i) & filter_date_day & (df["операции списания"] == "ПОТЕРИ")]["СписРуб"].sum()
             df_day_sp_POTERY = '{:,.0f}'.format(df_day_sp_POTERY_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_POTERY_prosent = df_day_sp_POTERY_f / df_day_sales_f
-            df_day_sp_POTERY_prosent = '{:,.2%}'.format(df_day_sp_POTERY_prosent).replace(',', ' ')
+            df_day_sp_POTERY_prosent_if = df_day_sp_POTERY_prosent
+            df_day_sp_POTERY_prosent = '{:,.1%}'.format(df_day_sp_POTERY_prosent).replace(',', ' ')
 
-            # Списания ПОТЕРИ ///добавить если макс воскресенье то брать 2 дня
-            df_day_sp_HOZ_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "Хозяйственные товары")]["СписРуб"].sum()
+            # Списания ХОЗЫ ///добавить если макс воскресенье то брать 2 дня
+            df_day_sp_HOZ_f = df.loc[(df["Менеджер"] == i) & filter_date_day & (df["операции списания"] == "Хозяйственные товары")]["СписРуб"].sum()
             df_day_sp_HOZ = '{:,.0f}'.format(df_day_sp_HOZ_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_HOZ_prosent = df_day_sp_HOZ_f / df_day_sales_f
             df_day_sp_HOZ_prosent = '{:,.1%}'.format(df_day_sp_HOZ_prosent).replace(',', ' ')
 
             # Списания Дегустации ///добавить если макс воскресенье то брать 2 дня
-            df_day_sp_DEG_f = df.loc[(df["Менеджер"] == i) & (df["По дням"] == max_date) & (df["операции списания"] == "Дегустации")]["СписРуб"].sum()
+            df_day_sp_DEG_f = df.loc[(df["Менеджер"] == i) & filter_date_day & (df["операции списания"] == "Дегустации")]["СписРуб"].sum()
             df_day_sp_DEG = '{:,.0f}'.format(df_day_sp_DEG_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_DEG_prosent = df_day_sp_DEG_f / df_day_sales_f
-            df_day_sp_DEG_prosent = '{:,.1%}'.format(df_day_sp_DEG_prosent).replace(',', ' ')
+            df_day_sp_DEG_prosent = '{:,.2%}'.format(df_day_sp_DEG_prosent).replace(',', ' ')
 
             # Списания ОСТАЛЬНОЕ ///добавить если макс воскресенье то брать 2 дня
             df_day_sp_PROCH_f = df.loc[(df["Менеджер"] == i) &
-                                     (df["По дням"] == max_date) &
+                                     filter_date_day &
                                      (df["операции списания"] != "Дегустации") &
                                      (df["операции списания"] != "Хозяйственные товары") &
                                      (df["операции списания"] != "ПОТЕРИ")]["СписРуб"].sum()
             df_day_sp_PROCH = '{:,.0f}'.format(df_day_sp_PROCH_f).replace(',', ' ')
             # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
-            df_day_sp_PROCH_prosent = df_day_sp_DEG_f / df_day_sales_f
-            df_day_sp_PROCH_prosent = '{:,.1%}'.format(df_day_sp_PROCH_f).replace(',', ' ')
+            df_day_sp_PROCH_prosent = df_day_sp_PROCH_f / df_day_sales_f
+            df_day_sp_PROCH_prosent = '{:,.2%}'.format(df_day_sp_PROCH_prosent).replace(',', ' ')
+            # CРЕДНИЙ ЧЕК
 
+            """ВЫЧСЛЕНИЯ ДЛЯ МЕСЯЦА"""
+            filter_date_mounth = (df["год"] == max_date_year ) & (df["месяц"] == max_date_mounth)
+            # Выручка текущий месяц
+            df_month_sales_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth ]["Выручка"].sum()
+            df_month_sales = '{:,.0f}'.format(df_month_sales_f).replace(',', ' ')
+            # Списания текущий месяц
+            df_month_sp_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth]["СписРуб"].sum()
+            df_month_sp = '{:,.0f}'.format(df_month_sp_f).replace(',', ' ')
+            # % Списания месяц
+            df_month_prosent = df_month_sp_f/ df_month_sales_f
+            df_month_prosent = '{:,.1%}'.format(df_month_prosent).replace(',', ' ')
+
+            # Списания ПОТЕРИ
+            df_month_sp_POTERY_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth & (df["операции списания"] == "ПОТЕРИ")]["СписРуб"].sum()
+            df_month_sp_POTERY = '{:,.0f}'.format(df_month_sp_POTERY_f).replace(',', ' ')
+            # % Списания за прошлый день
+            df_month_sp_POTERY_prosent = df_month_sp_POTERY_f / df_month_sales_f
+            df_month_sp_POTERY_prosent_if = df_month_sp_POTERY_prosent
+            df_month_sp_POTERY_prosent = '{:,.1%}'.format(df_month_sp_POTERY_prosent).replace(',', ' ')
+
+            # Списания Дегустации
+            df_month_sp_DEG_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth & (df["операции списания"] == "Дегустации")]["СписРуб"].sum()
+            df_month_sp_DEG = '{:,.0f}'.format(df_month_sp_DEG_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_month_sp_DEG_prosent = df_month_sp_DEG_f / df_month_sales_f
+            df_month_sp_DEG_prosent = '{:,.2%}'.format(df_month_sp_DEG_prosent).replace(',', ' ')
+
+            # Списания ХОЗЫ
+            df_month_sp_HOZ_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth & (df["операции списания"] == "Хозяйственные товары")]["СписРуб"].sum()
+            df_month_sp_HOZ = '{:,.0f}'.format(df_month_sp_HOZ_f).replace(',', ' ')
+            # % Списания за прошлый день ///добавить если макс воскресенье то брать 2 дня
+            df_month_sp_HOZ_prosent = df_month_sp_HOZ_f / df_month_sales_f
+            df_month_sp_HOZ_prosent = '{:,.1%}'.format(df_month_sp_HOZ_prosent).replace(',', ' ')
 
             # region условия
+            """ДЛЯ ПРОШЛОГО ДНЯ"""
+            sig_day_POTERY = "  • "
+            sig_day_DEG = "  • "
             if df_day_sp_DEG_f<=0:
                 df_day_sp_DEG = "Дегустаций не было"
-                df_day_sp_DEG_prosent = "🛑"
+                sig_day_DEG = "❗"
+            if df_day_sp_POTERY_prosent_if >= 0.025:
+                sig_day_POTERY = "❗"
+            """ДЛЯ МЕСЯЦА"""
+            sig_month_POTERY = "  • "
+            sig_month_DEG = "  • "
+            if df_month_sp_DEG_f <= 0:
+                df_month_sp_DEG = "Дегустаций не было"
+                sig_month_DEG = "❗"
+            if df_month_sp_POTERY_prosent_if >= 0.025:
+                sig_month_POTERY = "❗"
+
             # endregion
             # region Переименование менеджеров
 
@@ -301,54 +403,55 @@ class BOT:
                 .replace('Сергеев Алексей Сергеевич', 'Сергеев А.С') \
                 .replace('Карпова Екатерина Эдуардовна', 'Карпова Е.Э')
             # endregion
-            """ren_mes = i.replace(1, 'Январь') \
-                        .replace(2, 'Февраль') \
-                        .replace(3, 'Март') \
-                        .replace(4, 'Апрель') \
-                        .replace(5, 'Май') \
-                        .replace(6, 'Июнь') \
-                        .replace(7, 'Июль') \
-                        .replace(8, 'Август') \
-                        .replace(9, 'Сентябрь') \
-                        .replace(10, 'Октябрь') \
-                        .replace(11, 'Ноябрь') \
-                        .replace(12, 'Декабрь')"""
+            # region Переименование месяцов.
+            MONTHS = {1: 'январь',
+                      2: 'февраль',
+                      3: 'март',
+                      4: 'апрель',
+                      5: 'май',
+                      6: 'июнь',
+                      7: 'июль',
+                      8: 'август',
+                      9: 'сентябрь',
+                      10: 'октябрь',
+                      11: 'ноябрь',
+                      12: 'декабрь'}
 
-            BOT().bot_mes(mes=
-                          f" 🔹 Результаты прошлого дня:\n       • {max_date.strftime('%Y-%m-%d')}\n"
-                          f" 🔹 {TY_LIST } :\n\n"
-                          f" 💰 Выручка: {df_day_sales}\n"
-                          f" 💸 Списания: {df_day_sp} ({df_day_prosent})\n"
-                          f"       • Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})\n"
-                          f"       • Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})\n"
-                          f"       • Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})\n"
-                          f"       • Прочее: {df_day_sp_PROCH} ({df_day_sp_DEG_prosent})\n\n")
-                          #f" 🔹 Накапленный итог:\n       • {Апрель}\n"
+            max_date_mounth_mes = MONTHS.get(max_date_mounth, 'День недели не найден')
+            max_date_mounth_mes = "  • " + max_date_mounth_mes + "  • " + str(max_date_year) + 'г'
+            # endregion
 
+            SVODKA = f'<b>👨‍💼 {TY_LIST}:</b>\n\n' \
+                     f'<b>{podpis_mes}</b>\n' \
+                     f'<i>{date_day}</i>\n\n' \
+                     f'💰 Выручка: {df_day_sales}\n' \
+                     f'💸 Списания: {df_day_sp} ({df_day_prosent})\n' \
+                     f'   <i>{sig_day_POTERY}Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})</i>\n' \
+                     f'     <i>• Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})</i>\n' \
+                     f'   <i>{sig_day_DEG}Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})</i>\n' \
+                     f'     <i>• Прочее: {df_day_sp_PROCH} ({df_day_sp_PROCH_prosent})</i>\n' \
+                     f'🧾 Средний чек: -----\n\n' \
+                     f'<b>Текущий месяц:</b>\n' \
+                     f'<i>{max_date_mounth_mes}</i>\n\n' \
+                     f'💰 Выручка: {df_month_sales}\n' \
+                     f'💸 Списания: {df_month_sp} ({df_month_prosent})\n' \
+                     f'   <i>{sig_month_POTERY}Потери: {df_month_sp_POTERY} ({df_month_sp_POTERY_prosent})</i>\n' \
+                     f'     <i>• Хозы: {df_month_sp_HOZ} ({df_month_sp_HOZ_prosent})</i>\n' \
+                     f'   <i>{sig_month_DEG}Дегустации: {df_month_sp_DEG} ({df_month_sp_DEG_prosent})</i>\n' \
 
-            """mes =f"{TY_LIST} :\n"\
-            f" Результаты прошлого дня:\n\n"\
-            f" Выручка: {df_day_sales}\n"\
-            f" Списания: {df_day_sp} ({df_day_prosent})\n"\
-            f" Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})\n"\
-            f" Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})\n"\
-            f" Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})\n"\
-            f" Прочее: {df_day_sp_PROCH} ({df_day_sp_DEG_prosent})\n"
-            OPENAI().open_ai_curi(mes=mes)"""
+            BOT().bot_mes_html(mes=SVODKA)
 
 
             del df_day_sales
             del df_day_sp
 
-
-
-
-
-
-
-
-
-
+        """BOT().bot_mes(mes="Здравствуйте, коллеги!"\
+                        f"Для того, чтобы избежать возможных вопросов, я хотел бы уточнить некоторые важные моменты."\
+                        f"Для учета проведенных дегустаций я выделяю отдельную строку, так как они должны проводиться регулярно, хотя бывают дни, когда их не проводят в некоторых магазинах."\
+                        f"Потери - это все, что относится к продукту, включая списания, кражи, маркетинг, подарки покупателям и расходы на хозяйственные нужды."\
+                        f"Списания включают в себя все статьи затрат на питание персонала, потери, кражи, маркетинг, подарки покупателям и расходы на хозяйственные нужды."\
+                        f"Я выделяю знаком ❗ списания 'потери' более 2.5% и проведенные дегустации, если они были отсутствующими."\
+                        f"Надеюсь, что эти пояснения помогут вам лучше понять мои расчеты и данные. Если у вас есть какие-либо вопросы, пожалуйста, не стесняйтесь спросить.")"""
         """ ln = ("Выручка",'СписРуб')
             for e in ln:
                 df[e] = (df[e].astype(str)
@@ -393,6 +496,8 @@ class BOT:
     """Обработка продаж формирование данных для Бота"""
     def bot_mes_html(self, mes):
         # получение ключей
+        print(BOT_RUK)
+        print(BOT_ANALITIK)
         dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
         keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
         token = keys_dict.get('token')
@@ -400,12 +505,15 @@ class BOT:
         analitik = keys_dict.get('analitik')
         BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
 
-        # TEST ####################################################
+        #mes = 'Пример сообщения с <b>жирным</b> текстом и <a href="https://www.example.com">ссылкой</a>.'
+
         url = f'https://api.telegram.org/bot{token}/sendMessage'
+
+        # TEST ####################################################
         # Параметры запроса для отправки сообщения
-        params = {'chat_id': test, 'text': mes}
+        data = {'chat_id': test, 'text': mes, 'parse_mode': 'HTML'}
         # Отправка запроса на сервер Telegram для отправки сообщения
-        response = requests.post(url, data=params)
+        response = requests.post(url, data=data)
         # Проверка ответа от сервера Telegram
         if response.status_code == 200:
             print('Отправлено Test')
@@ -416,7 +524,7 @@ class BOT:
         if BOT_ANALITIK == "y":
             url = f'https://api.telegram.org/bot{token}/sendMessage'
             # Параметры запроса для отправки сообщения
-            params = {'chat_id': analitik, 'text': mes}
+            params = {'chat_id': analitik, 'text': mes, 'parse_mode': 'HTML'}
             # Отправка запроса на сервер Telegram для отправки сообщения
             response = requests.post(url, data=params)
             # Проверка ответа от сервера Telegram
@@ -426,15 +534,16 @@ class BOT:
                 print(f'Ошибка при отправке Группа аналитик: {response.status_code}')
 
         # Группа руководители ##########################################
-        if BOT_RUK_FRS == "y":
+        if BOT_RUK == "y":
+            print(mes)
             url = f'https://api.telegram.org/bot{token}/sendMessage'
             # Параметры запроса для отправки сообщения
-            params = {'chat_id': BOT_RUK_FRS, 'text': mes}
+            params_1 = {'chat_id': BOT_RUK_FRS, 'text': mes, 'parse_mode': 'HTML'}
             # Отправка запроса на сервер Telegram для отправки сообщения
-            response = requests.post(url, data=params)
+            response = requests.post(url, data=params_1)
             # Проверка ответа от сервера Telegram
             if response.status_code == 200:
-                print('Сообщение успешно отправлено!')
+                print('Сообщение успешно Руководители!')
             else:
                 print(f'Ошибка при отправке Группа руководители: {response.status_code}')
     """отправка сообщений d в формате HTML"""
@@ -542,9 +651,7 @@ class BOT:
         BOT().bot_mes(mes=MAG_CUNT)
         return mes_bot
     """ежедневное инфо"""
-
 """Бот телеграм"""
-
 
 
 """BOT().bot_mes_RUK_FRS(mes=
@@ -581,4 +688,4 @@ class BOT:
                   f"Пока что все.")"""
 """оотправка сообщения в группу аналитик"""
 #BOT().bot_mes(mes="https://pythonpip.ru/examples/kak-postroit-grafik-funktsii-na-python-pri-pomoschi-matplotlib")
-BOT().bot_raschet()
+#BOT().bot_raschet()
