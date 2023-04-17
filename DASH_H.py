@@ -1,4 +1,5 @@
 import psutil
+import xlsxwriter
 from pandas.tseries.offsets import DateOffset
 from datetime import datetime, timedelta, time
 from pandas.tseries.offsets import MonthBegin
@@ -18,8 +19,6 @@ pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
 gc.enable()
 
-
-
 # расположение данных home или work
 geo = "h"
 if geo == "h":
@@ -27,24 +26,22 @@ if geo == "h":
     PUT = "D:\\Python\\Dashboard\\"
     # путь до файлов с данными о продажах
     PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\Текущий год\\"
+    PUT_SET = "D:\\Python\\Dashboard\\Чеки_\\Исходники\\"
+    PUT_SET_to = "D:\\Python\\Dashboard\\Чеки_\\Обработанные\\"
 else:
     # основной каталог расположение данных дашборда
     PUT = "C:\\Users\\lebedevvv\\Desktop\\Dashboard\\"
     # путь до файлов с данными о продажах
     PUT_PROD = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\Текущий год\\"
     PUT_CHEK = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\ЧЕКИ\\2023\\"
-
-# region комементарии
-'''обновить все данные'''
-'''мини дашборд для ту'''
-'''Разделить в исходников на хозы и не'''
-'''аномальные снижения рост отсл добавить'''
-'''Ошибки по стокам и статьям'''
-'''чеков на сет'''
-# endregion
+    PUT_SET = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Чеки_\\Исходники\\"
+    PUT_SET_to = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Чеки_\\Обработанные\\"
 # region ОБНОВЛЕНИЕ ИСТОРИИ
 HISTORY = "n"
+CHECK_SET_ALL = "n"
 # endregion
+
+
 
 class MEMORY:
     def mem(self, x, text):
@@ -96,6 +93,235 @@ class DOC:
 """функция сохранения файлов по папкам"""
 """Автоописание"""
 class NEW:
+    # ##### Перезапись истории #######################
+    def History(self):
+        print("обновление истории")
+        rng, replacements = RENAME().Rread()
+        path = "D:\\Python\\Dashboard\\Исходные данные\\"  ##главный каталог
+        path_to = "D:\\Python\\Dashboard\\ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\"   ##Куда
+        papki_1uroven = os.listdir(path)  ##  смотрит папки главный каталог
+        for god in papki_1uroven:
+            os.mkdir(path_to + god)  ##  создает  каталоги для года
+            papki_2uroven = os.listdir(path + god)  ##  смотрит папки внутри года каталог
+            for mon in papki_2uroven:  ##  выбирает месяц
+                os.mkdir(path_to + god + "\\" + mon)  ##  создает  каталоги для выбранного месяца
+                files = os.listdir(path + god + "\\" + mon)  ## смотрит файлы в выбраннном месяце
+                for f in tqdm(files, desc="ГОДА   --  ", ncols=130):  ##  переберает файлы
+                    file = path + god + "\\" + mon + "\\" + f
+                    stroka = open(file, 'r', encoding='utf-8')
+                    new_name = f
+                    new_name = new_name[0:23]  ##  берет имя для нового файла
+                    stroka.close()  ##  закрывает файл
+                    df = pd.read_csv(file, sep="\t", encoding='utf-8', parse_dates=['По дням'],dayfirst=True,)
+                    # удаление лишних столбцов
+                    df = df.drop(["СписРуб"], axis=1)
+                    if 'Количество списания' in df.columns:
+                       df = df.drop('Количество списания', axis=1)
+                    if 'Списания, кг' in df.columns:
+                        df = df.drop('Списания, кг', axis=1)
+                    # переименовние магазинв
+                    for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): df[
+                        'Склад магазин.Наименование'] = \
+                        df['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+                    # Обработка файла списания
+                    spis = os.listdir(PUT+ "Списания\\"  + god + "\\" + mon)
+                    for s in spis:
+                        # открывает аналогичный года по маке файла продаж
+                        file_s = PUT+ "Списания\\" + god + "\\" + mon + "\\" + s
+                        spisisania = pd.read_csv(file_s, sep="\t", encoding='utf-8', skiprows=7, parse_dates=['По дням'],dayfirst=True,
+                                              names=("Склад магазин.Наименование", "Номенклатура", 'По дням', "операции списания","СписРуб","списруб_без_ндс" ))
+                        # переименование магазинов
+                        for i in tqdm(range(rng), desc="Переименование тт Списания - ", colour="#808080"): spisisania[
+                            'Склад магазин.Наименование'] = \
+                            spisisania['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+                        # Фильтрация файла списания меньше или равно файлам продаж дтаа
+                        max_sales = df['По дням'].max()
+                        min_sales = df['По дням'].min()
+                        spisisania = spisisania.loc[(spisisania['По дням'] <= max_sales) & (spisisania['По дням'] >= min_sales)]
+                        # убрать строку итого
+                        spisisania = spisisania.loc[spisisania["Склад магазин.Наименование"] != "Итого"]
+                        # чистка мусора продажи
+                        df["Выручка"] = df["Выручка"].str.replace(',', '.')
+                        df["Выручка"] = df["Выручка"].str.replace('\xa0', '')
+                        df["Выручка"] = df["Выручка"].astype("float")
+                        # так как столбец списаний удален то убрать пустые строки
+                        df = df.loc[df["Выручка"] > 0]
+                        # чистка мусора списания
+                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace(',', '.')
+                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace('\xa0', '')
+                        spisisania["СписРуб"] = spisisania["СписРуб"].astype("float")
+                        spisisania = spisisania.loc[spisisania["СписРуб"] > 0]
+                        # Сообщешие в телеграм
+                        spisisania_do = spisisania["СписРуб"].copy()
+                        df_do = df["Выручка"].copy()
+
+                        # обьеденение таблиц списания и продаж
+                        df = pd.concat([df, spisisania], axis=0)
+
+                        # Сообщешие в телеграм
+                        spisisania_ps = spisisania["СписРуб"].copy()
+                        df_ps = df["Выручка"]
+                        # Сообщешие в телеграм
+                        print(new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
+                        #BOT().bot_mes(mes= new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
+
+                    df.to_csv(path_to + god + "\\" + mon + "\\" + new_name + ".txt", encoding='utf-8', decimal=",", sep="\t",
+                              index=False)  ##  сохраняет файл
+                    duration = 1000
+                    freq = 220
+                    winsound.Beep(freq, duration)
+                    # очистка памяти
+                    spisisania = pd.DataFrame()
+                    df = pd.DataFrame()
+                    gc.enable()
+                    print(new_name, " готов")
+                print(mon, ' готов')  ##  Заканчивает месяц, папку в годе, потом бере след.
+            print(god, "готов")  ##  Заканчивает год , берет следующую
+        print("ГОТОВО")
+        return
+    """Обновление истории (~2 час)"""
+    def Check_set_all(self):
+        gc.collect()
+        MEMORY().mem_total(x="Функция Check_set")
+        all_files = []
+        for root, dirs, files in os.walk(PUT_SET):
+            for file in files:
+                all_files.append(os.path.join(root, file))
+        # Список таблиц с данными за текущий месяц
+        for file in all_files:
+            set_01 = pd.read_excel(file, parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y %H:%M:%S" )
+            set_check = set_01[["Тип","Магазин 1C","Магазин","Дата/Время чека","Касса","Чек", "Стоимость позиции","Код товара"]]
+            del set_01
+            gc.collect()
+            MEMORY().mem_total(x="Закгрузка файла чеков")
+            # фильтрация таблицы продаж
+            set_check = set_check.loc[set_check["Тип"] == "Продажа"]
+            set_check = set_check.drop("Тип", axis=1)
+            # замена названий в файлах магазины
+            rng, replacements = RENAME().Rread()
+            for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): set_check[
+                "Магазин 1C"] = \
+                set_check["Магазин 1C"].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+            del rng, replacements
+            set_check["Дата/Время чека"] = set_check["Дата/Время чека"].dt.date
+            # Формирование ID Чека
+            set_check["ID_Chek"] =  set_check["Магазин"].astype(int).astype(str) + set_check["Касса"].astype(int).astype(str) + set_check["Чек"].astype(int).astype(str) + set_check["Дата/Время чека"].astype(str)
+            set_check = set_check.drop(["Магазин","Касса","Чек"], axis=1)
+            # удаление не нужных символов
+            set_check["Стоимость позиции"] = (set_check["Стоимость позиции"].astype(str)
+                           .str.replace("\xa0", "")
+                           .str.replace(",", ".")
+                           .fillna("0")
+                           .astype("float")
+                           .round(2))
+
+            # Групировки по дням
+            set_check = set_check.groupby(["Магазин 1C", "Дата/Время чека", "ID_Chek"], as_index=False).agg({
+                "Стоимость позиции": "sum",
+                "Код товара": [("Количество товаров в чеке", "count"), ("Количество уникальных товаров в чеке", "nunique")]})
+            # переименовываем столбцы
+            set_check.columns = ['Магазин 1C', 'Дата/Время чека', 'ID_Chek', 'Стоимость позиции', 'Количество товаров в чеке', 'Количество уникальных товаров в чеке']
+            # выбираем нужные столбцы и сортируем по дате/времени чека в порядке убывания
+            set_check = set_check[['Магазин 1C', 'Дата/Время чека', 'ID_Chek', 'Стоимость позиции', 'Количество товаров в чеке', 'Количество уникальных товаров в чеке']] \
+                .sort_values('Дата/Время чека', ascending=False) \
+                .reset_index(drop=True)
+            # групировка по магазинам
+            set_check = set_check.groupby(["Магазин 1C", "Дата/Время чека"], as_index=False) \
+                .agg({"Стоимость позиции": "sum",
+                      'ID_Chek':"count",
+                      "Количество товаров в чеке": "mean",
+                      "Количество уникальных товаров в чеке": "mean"}) \
+                .sort_values("Дата/Время чека", ascending=False).reset_index(drop=True)
+            # дбавление среднего чека
+            set_check["Средний чек"] = set_check["Стоимость позиции"] / set_check["ID_Chek"]
+            # переименование столбцов
+            set_check = set_check.rename(columns={"Магазин 1C": "Магазин","Дата/Время чека":"Дата","Стоимость позиции":"Выручка",
+                                                  "ID_Chek": "Чеков","Количество товаров в чеке": "Длина","Количество уникальных товаров в чеке":"SKU в чеке" })
+            # округление
+            set_check = set_check.round(2)
+            set_check['Дата'] = pd.to_datetime(set_check['Дата'], format='%Y-%m-%d')
+            print(set_check)
+            set_check['Дата'] = set_check['Дата'].dt.strftime('%d.%m.%Y')
+            print(set_check)
+            set_check.to_excel(PUT_SET_to + os.path.basename(file), index=False)
+            del set_check
+            gc.collect()
+            MEMORY().mem_total(x="Завершение цикла обработки чеков сета")
+    """ Обработка чеков сетретейла папка полностью"""
+    # #################################################
+    def Check_set(self):
+        gc.collect()
+        MEMORY().mem_total(x="Функция Check_set")
+        poisk_2max = os.listdir(PUT_SET)
+        format = '%d.%m.%Y'
+        fail = [f for f in poisk_2max if f.endswith('.xlsx') and len(f) > 10 and datetime.strptime(f[:10], format)]
+
+        fail.sort(key=lambda x: datetime.strptime(x[:10], format))
+        latest_files = fail[-2:]
+
+        file_paths = [os.path.join(PUT_SET, f) for f in latest_files]
+        print(file_paths)
+        # Список таблиц с данными за текущий месяц
+        for file in file_paths:
+            set_01 = pd.read_excel(file, parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y %H:%M:%S" )
+            set_check = set_01[["Тип","Магазин 1C","Магазин","Дата/Время чека","Касса","Чек", "Стоимость позиции","Код товара"]]
+            del set_01
+            gc.collect()
+            MEMORY().mem_total(x="Закгрузка файла чеков")
+            # фильтрация таблицы продаж
+            set_check = set_check.loc[set_check["Тип"] == "Продажа"]
+            set_check = set_check.drop("Тип", axis=1)
+            # замена названий в файлах магазины
+            rng, replacements = RENAME().Rread()
+            for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): set_check[
+                "Магазин 1C"] = \
+                set_check["Магазин 1C"].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+            del rng, replacements
+            set_check["Дата/Время чека"] = set_check["Дата/Время чека"].dt.date
+            # Формирование ID Чека
+            set_check["ID_Chek"] =  set_check["Магазин"].astype(int).astype(str) + set_check["Касса"].astype(int).astype(str) + set_check["Чек"].astype(int).astype(str) + set_check["Дата/Время чека"].astype(str)
+            set_check = set_check.drop(["Магазин","Касса","Чек"], axis=1)
+            # удаление не нужных символов
+            set_check["Стоимость позиции"] = (set_check["Стоимость позиции"].astype(str)
+                           .str.replace("\xa0", "")
+                           .str.replace(",", ".")
+                           .fillna("0")
+                           .astype("float")
+                           .round(2))
+
+            # Групировки по дням
+            set_check = set_check.groupby(["Магазин 1C", "Дата/Время чека", "ID_Chek"], as_index=False).agg({
+                "Стоимость позиции": "sum",
+                "Код товара": [("Количество товаров в чеке", "count"), ("Количество уникальных товаров в чеке", "nunique")]})
+            # переименовываем столбцы
+            set_check.columns = ['Магазин 1C', 'Дата/Время чека', 'ID_Chek', 'Стоимость позиции', 'Количество товаров в чеке', 'Количество уникальных товаров в чеке']
+            # выбираем нужные столбцы и сортируем по дате/времени чека в порядке убывания
+            set_check = set_check[['Магазин 1C', 'Дата/Время чека', 'ID_Chek', 'Стоимость позиции', 'Количество товаров в чеке', 'Количество уникальных товаров в чеке']] \
+                .sort_values('Дата/Время чека', ascending=False) \
+                .reset_index(drop=True)
+            # групировка по магазинам
+            set_check = set_check.groupby(["Магазин 1C", "Дата/Время чека"], as_index=False) \
+                .agg({"Стоимость позиции": "sum",
+                      'ID_Chek':"count",
+                      "Количество товаров в чеке": "mean",
+                      "Количество уникальных товаров в чеке": "mean"}) \
+                .sort_values("Дата/Время чека", ascending=False).reset_index(drop=True)
+            # дбавление среднего чека
+            set_check["Средний чек"] = set_check["Стоимость позиции"] / set_check["ID_Chek"]
+            # переименование столбцов
+            set_check = set_check.rename(columns={"Магазин 1C": "Магазин","Дата/Время чека":"Дата","Стоимость позиции":"Выручка",
+                                                  "ID_Chek": "Чеков","Количество товаров в чеке": "Длина","Количество уникальных товаров в чеке":"SKU в чеке" })
+            # округление
+            set_check = set_check.round(2)
+            set_check['Дата'] = pd.to_datetime(set_check['Дата'], format='%Y-%m-%d')
+            print(set_check)
+            set_check['Дата'] = set_check['Дата'].dt.strftime('%d.%m.%Y')
+            print(set_check)
+            set_check.to_excel(PUT_SET_to + os.path.basename(file), index=False)
+            del set_check
+            gc.collect()
+            MEMORY().mem_total(x="Завершение цикла обработки чеков сета")
+    """ Обработка чеков сетретейла только последние 2 файла"""
     def STATYA(self):
         STATYA = pd.read_excel(PUT + "DATA_2\\" + "@СПРАВОЧНИК_СТАТЕЙ.xlsx",
                                sheet_name="STATYA_REDAKT")
@@ -519,92 +745,6 @@ class NEW:
             print("Сохранено - Финрез_Обработанный.csv")
             return FINREZ
     '''обработка финреза итоговых значений'''
-    def History(self):
-        print("обновление истории")
-        rng, replacements = RENAME().Rread()
-        path = "D:\\Python\\Dashboard\\Исходные данные\\"  ##главный каталог
-        path_to = "D:\\Python\\Dashboard\\ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\"   ##Куда
-        papki_1uroven = os.listdir(path)  ##  смотрит папки главный каталог
-        for god in papki_1uroven:
-            os.mkdir(path_to + god)  ##  создает  каталоги для года
-            papki_2uroven = os.listdir(path + god)  ##  смотрит папки внутри года каталог
-            for mon in papki_2uroven:  ##  выбирает месяц
-                os.mkdir(path_to + god + "\\" + mon)  ##  создает  каталоги для выбранного месяца
-                files = os.listdir(path + god + "\\" + mon)  ## смотрит файлы в выбраннном месяце
-                for f in tqdm(files, desc="ГОДА   --  ", ncols=130):  ##  переберает файлы
-                    file = path + god + "\\" + mon + "\\" + f
-                    stroka = open(file, 'r', encoding='utf-8')
-                    new_name = f
-                    new_name = new_name[0:23]  ##  берет имя для нового файла
-                    stroka.close()  ##  закрывает файл
-                    df = pd.read_csv(file, sep="\t", encoding='utf-8', parse_dates=['По дням'],dayfirst=True,)
-                    # удаление лишних столбцов
-                    df = df.drop(["СписРуб"], axis=1)
-                    if 'Количество списания' in df.columns:
-                       df = df.drop('Количество списания', axis=1)
-                    if 'Списания, кг' in df.columns:
-                        df = df.drop('Списания, кг', axis=1)
-                    # переименовние магазинв
-                    for i in tqdm(range(rng), desc="Переименование тт Продажи - ", colour="#808080"): df[
-                        'Склад магазин.Наименование'] = \
-                        df['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
-                    # Обработка файла списания
-                    spis = os.listdir(PUT+ "Списания\\"  + god + "\\" + mon)
-                    for s in spis:
-                        # открывает аналогичный года по маке файла продаж
-                        file_s = PUT+ "Списания\\" + god + "\\" + mon + "\\" + s
-                        spisisania = pd.read_csv(file_s, sep="\t", encoding='utf-8', skiprows=7, parse_dates=['По дням'],dayfirst=True,
-                                              names=("Склад магазин.Наименование", "Номенклатура", 'По дням', "операции списания","СписРуб","списруб_без_ндс" ))
-                        # переименование магазинов
-                        for i in tqdm(range(rng), desc="Переименование тт Списания - ", colour="#808080"): spisisania[
-                            'Склад магазин.Наименование'] = \
-                            spisisania['Склад магазин.Наименование'].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
-                        # Фильтрация файла списания меньше или равно файлам продаж дтаа
-                        max_sales = df['По дням'].max()
-                        min_sales = df['По дням'].min()
-                        spisisania = spisisania.loc[(spisisania['По дням'] <= max_sales) & (spisisania['По дням'] >= min_sales)]
-                        # убрать строку итого
-                        spisisania = spisisania.loc[spisisania["Склад магазин.Наименование"] != "Итого"]
-                        # чистка мусора продажи
-                        df["Выручка"] = df["Выручка"].str.replace(',', '.')
-                        df["Выручка"] = df["Выручка"].str.replace('\xa0', '')
-                        df["Выручка"] = df["Выручка"].astype("float")
-                        # так как столбец списаний удален то убрать пустые строки
-                        df = df.loc[df["Выручка"] > 0]
-                        # чистка мусора списания
-                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace(',', '.')
-                        spisisania["СписРуб"] = spisisania["СписРуб"].str.replace('\xa0', '')
-                        spisisania["СписРуб"] = spisisania["СписРуб"].astype("float")
-                        spisisania = spisisania.loc[spisisania["СписРуб"] > 0]
-                        # Сообщешие в телеграм
-                        spisisania_do = spisisania["СписРуб"].copy()
-                        df_do = df["Выручка"].copy()
-
-                        # обьеденение таблиц списания и продаж
-                        df = pd.concat([df, spisisania], axis=0)
-
-                        # Сообщешие в телеграм
-                        spisisania_ps = spisisania["СписРуб"].copy()
-                        df_ps = df["Выручка"]
-                        # Сообщешие в телеграм
-                        print(new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
-                        #BOT().bot_mes(mes= new_name +"\nВыручка:" + str(df_ps.sum() - df_do.sum())+ "\nСписания:" + str(spisisania_ps.sum() - spisisania_do.sum()))
-
-                    df.to_csv(path_to + god + "\\" + mon + "\\" + new_name + ".txt", encoding='utf-8', decimal=",", sep="\t",
-                              index=False)  ##  сохраняет файл
-                    duration = 1000
-                    freq = 220
-                    winsound.Beep(freq, duration)
-                    # очистка памяти
-                    spisisania = pd.DataFrame()
-                    df = pd.DataFrame()
-                    gc.enable()
-                    print(new_name, " готов")
-                print(mon, ' готов')  ##  Заканчивает месяц, папку в годе, потом бере след.
-            print(god, "готов")  ##  Заканчивает год , берет следующую
-        print("ГОТОВО")
-        return
-    """Обновление истории (~2 час)"""
     def Obnovlenie(self):
         print("ОБНОВЛЕНИЕ ПРОДАЖ........\n")
         if HISTORY == "y" :
@@ -665,19 +805,13 @@ class NEW:
                     # сохранение файла
                     MEMORY().mem(x=df, text="1")
                     df.to_csv(PUT_PROD + file, encoding='utf-8', sep="\t", decimal=",", index=False)
+                    if geo == "w":
+                        df.to_csv("P:\\Фирменная розница\\ФРС\\Данные из 1 С\\Продажи, Списания, Прибыль\\Текущий год\\" + file, encoding='utf-8', sep="\t", decimal=",", index=False)
                     MEMORY().mem(x=df, text="2")
-                    #df.to_csv("P:\\Фирменная розница\\ФРС\\Данные из 1 С\\Продажи, Списания, Прибыль\\Текущий год\\" + file, encoding='utf-8', sep="\t", decimal=",", index=False)
-                    ##  сохраняет файл
-                    # ДЛЯ БОТА ТЕЛЕГРАМ
-
-
-
-                    bot.BOT().bot_raschet()
                     # очистка памяти
                     del spisisania
                     del df
-
-
+                NEW().Check_set()
                 if ((file.split('.')[-1]) == 'xlsx'):
                     pyt_excel = os.path.join(rootdir, file)
                     read = pd.read_excel(pyt_excel, sheet_name="Sheet1")
@@ -688,6 +822,7 @@ class NEW:
                     read = read.reset_index(drop=True)
                     read.to_excel(PUT_CHEK + file,
                                   index=False)
+                bot.BOT().bot_raschet()
                 gc.collect()
         '''отвечает за загрузку и переименование новых данных продаж и чеков'''
     """Обновление данных ежедневное"""
@@ -720,66 +855,6 @@ class NEW:
         del rng, replacements, Ren
         return vir_NDS
     '''отвечает за загрузку данных для  расчета ставки выручки ндс'''
-    """  def NDS_spisania(self):
-        rng, replacements = RENAME().Rread()
-        print("Обновление данных списания без хозов ндс\n")
-        Spisania = pd.DataFrame()
-        for rootdir, dirs, files in os.walk(PUT + "ндс_списания_без_хозов\\"):
-            for file in files:
-                if ((file.split('.')[-1]) == 'txt'):
-                    pyt_txt = os.path.join(rootdir, file)
-                    Spisania_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=7,
-                                              names=("магазин", "списание_без_хозов_с_ндс", "списание_без_хозов_без_ндс"))
-                    for i in tqdm(range(rng), desc="Переименование тт списания без хозов ндс -" + file, ncols=120,
-                                  colour="#F8C9CE"):
-                        Spisania_00["магазин"] = Spisania_00["магазин"].replace(replacements["НАЙТИ"][i],
-                                                                                replacements["ЗАМЕНИТЬ"][i],
-                                                                                regex=False)
-                    date = file[0:len(file) - 4]
-                    Spisania_00 = Spisania_00.loc[Spisania_00["магазин"] != "Итого"]
-                    Spisania_00["дата"] = date
-                    Spisania_00["дата"] = pd.to_datetime(Spisania_00["дата"], dayfirst=True)
-                    Spisania = pd.concat([Spisania, Spisania_00], axis=0)
-        Ren = ["списание_без_хозов_с_ндс", "списание_без_хозов_без_ндс"]
-        for r in Ren:
-            Spisania[r] = Spisania[r].str.replace(',', '.')
-            Spisania[r] = Spisania[r].str.replace('\xa0', '')
-            Spisania[r] = Spisania[r].astype("float")
-        Spisania["ставка списание без хозов ндс"] = (Spisania["списание_без_хозов_с_ндс"] / Spisania["списание_без_хозов_без_ндс"])
-        Spisania["ПРОВЕРКАА"] = Spisania["списание_без_хозов_с_ндс"] * Spisania["ставка списание без хозов ндс"]
-        gc.enable()
-        return Spisania
-    '''отвечает за загрузку данных для  расчета ставки списания без хозов ндс'''
-    def NDS_pitanie(self):
-        rng, replacements = RENAME().Rread()
-        print("Обновление данных питание персонала ндс\n")
-        Pitanie = pd.DataFrame()
-        for rootdir, dirs, files in os.walk(PUT + "ндс_питание_персонала\\"):
-            for file in files:
-                if ((file.split('.')[-1]) == 'txt'):
-                    pyt_txt = os.path.join(rootdir, file)
-                    Pitanie_00 = pd.read_csv(pyt_txt, sep="\t", encoding='utf-8', skiprows=7,
-                                             names=("магазин", "питание_ндс", "2.10. Питание сотрудников "))
-                    for i in tqdm(range(rng), desc="Переименование тт списания без хозов ндс -" + file, ncols=120,
-                                  colour="#F8C9CE"):
-                        Pitanie_00["магазин"] = Pitanie_00["магазин"].replace(replacements["НАЙТИ"][i],
-                                                                              replacements["ЗАМЕНИТЬ"][i],
-                                                                              regex=False)
-                    date = file[0:len(file) - 4]
-                    Pitanie_00 = Pitanie_00.loc[Pitanie_00["магазин"] != "Итого"]
-                    Pitanie_00["дата"] = date
-                    Pitanie_00["дата"] = pd.to_datetime(Pitanie_00["дата"], dayfirst=True)
-                    Pitanie = pd.concat([Pitanie, Pitanie_00], axis=0)
-        Ren = ["питание_ндс", "2.10. Питание сотрудников "]
-        for r in Ren:
-            Pitanie[r] = Pitanie[r].str.replace(',', '.')
-            Pitanie[r] = Pitanie[r].str.replace('\xa0', '')
-            Pitanie[r] = Pitanie[r].astype("float")
-        Pitanie["питание ставка ндс"] = (Pitanie["2.10. Питание сотрудников "] / Pitanie["питание_ндс"])
-        Pitanie["ПРОВЕРКАА"] = Pitanie["питание_ндс"] * Pitanie["питание ставка ндс"]
-        gc.enable()
-        return Pitanie"""
-    '''отвечает за загрузку данных для  расчета ставки питание с ндс'''
     def NDS_zakup(self):
         rng, replacements = RENAME().Rread()
         print("Расчет ставки ндс закуп\n")
@@ -835,7 +910,7 @@ class NEW:
     def Royalty(self):
         royalty = pd.read_csv(PUT + "TEMP\\Роялти\\Роялти средние за 3 месяца.csv", encoding="ANSI", sep=";", usecols=["магазин","Роялти%"] )
         return royalty
-
+    """Вычисление ставки роялти"""
 '''отвечает первоначальную обработку, сохранение временных файлов для вычисления минимальной и максимальной даты,
 сохраненние вреенного файла с каналати и режимом налогобложения'''
 class PROGNOZ:
@@ -1036,7 +1111,9 @@ class PROGNOZ:
 #NEW().Stavka_nds_Kanal()
 #NEW().Finrez()
 #NEW().Obnovlenie_error()
-#NEW().Obnovlenie()
-PROGNOZ().SALES_obrabotka()
+NEW().Obnovlenie()
+#PROGNOZ().SALES_obrabotka()
 #BOT().to_day()
 #PROGNOZ().Sales_prognoz()
+
+#NEW().Check_set()
