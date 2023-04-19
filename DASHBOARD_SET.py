@@ -54,7 +54,7 @@ else:
 
     PUT_SET_to = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Чеки_\\Обработанные\\"
 # endregion
-# region  Переборка всех файлов сета или последние
+# region Переборка всех файлов сета или последние
 OBNOVLENIE = 1
 OBNOVLENIE_file_all = "y"
 # endregion
@@ -123,7 +123,6 @@ class OPEN:
         for root, dirs, files in os.walk(PUT_SEBES):
             for file in files:
                 file_path = os.path.join(root, file)
-
                 df = pd.read_csv(file_path, sep="\t", encoding="utf-8", skiprows=2,
                                  names=("По дням", "Склад магазин.Наименование", "Номенклатура", "Себестоимость", "ВесПродаж"))
                 df = df.loc[df["Склад магазин.Наименование"] != "Итого"]
@@ -131,9 +130,7 @@ class OPEN:
                 l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
                 for w in l_mag:
                     df = df[~df['Склад магазин.Наименование'].str.contains(w)]
-                # Получите уникальные даты из столбца "По дням"
                 dates = df["По дням"].unique()
-                # Переберите каждую дату
                 for date in dates:
                     day_df = df[df["По дням"] == date]
                     file_name = os.path.join(PUT_SEBES_day, date + ".txt")
@@ -151,20 +148,18 @@ class OPEN:
         return
     """отвечает за поик папок в указанном пути CSV"""
     def open_posledniy(self, put, number):
-        print(put)
+        # выбираю последние файлы в папке по названию
         poisk_2max = os.listdir(put)
         format = '%d.%m.%Y'
         fail = [f for f in poisk_2max if f.endswith('.xlsx') and len(f) > 10 and datetime.strptime(f[:10], format)]
         fail.sort(key=lambda x: datetime.strptime(x[:10], format))
         latest_files = fail[-number:]
-
-        # Копируем последние 2 файла в папку x
+        # копирую в свою папку
         for file in latest_files:
             source_file = os.path.join(put, file)
             destination_file = os.path.join(PUT_SET_copy, file)
             shutil.copy(source_file, destination_file)
-
-        # Возвращаем пути к скопированным файлам
+        # пути из своей папки
         files = [os.path.join(PUT_SET_copy, f) for f in latest_files]
         print(files)
         return files
@@ -195,7 +190,7 @@ class FLOAT:
 class SET_RETEIL:
     def C_1(self):
         OPEN().Day_fales()
-
+        # сибестоймость обработка
         return
     """отвечает за загрузкуданных сибестоймости из 1 с"""
     def Set_sales(self):
