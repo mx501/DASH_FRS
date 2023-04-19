@@ -1,4 +1,5 @@
 import psutil
+import shutil
 import xlsxwriter
 from pandas.tseries.offsets import DateOffset
 from datetime import datetime, timedelta, time
@@ -27,20 +28,35 @@ if geo == "h":
     PUT = "D:\\Python\\Dashboard\\"
     # путь до файлов с данными о продажах
     PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\Текущий год\\"
-    PUT_SET = "D:\\Python\\Dashboard\\Чеки_\\Исходники\\"
+    """Путь до не разбитых файлов"""
+    PUT_SEBES = "D:\\Python\\DASHBRD_SET\\Источники\\Себестоемость\\Исходные\\"
+    """Путь до не разбитых файлов"""
+    PUT_SEBES_day = "D:\\Python\\DASHBRD_SET\\Источники\\Себестоемость\\Архив\\"
+    """Путь до источника"""
+    PUT_SET = "C:\\Users\\виталий\\Desktop\\Паблик\\"
+    """путь переноса файла"""
+    PUT_SET_copy = "D:\\Python\\DASHBRD_SET\\Источники\\Чеки_сет\\Текущий день\\"
+    """сохранение файла продаж"""
     PUT_SET_sales = "D:\\Python\\DASHBRD_SET\\Продаж_Set\\"
+    """сохранение файла чеков"""
     PUT_SET_chek = "D:\\Python\\DASHBRD_SET\\ЧЕКИ_set\\"
 else:
     # основной каталог расположение данных дашборда
     PUT = "C:\\Users\\lebedevvv\\Desktop\\Dashboard\\"
     # путь до файлов с данными о продажах
     PUT_PROD = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\Текущий год\\"
+    """ """
     PUT_CHEK = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\ЧЕКИ\\2023\\"
+    """ Чеки паблик """
     PUT_SET = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Чеки_\\Исходники\\"
+    """Чеки скопированные в свою папку для дадьнейшей обработки"""
+    PUT_SET_COPY = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Чеки_\\Обработанные\\"
+
     PUT_SET_to = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Чеки_\\Обработанные\\"
 # endregion
-OBNOVLENIE = 2
-# region Количество дней обновления файлов
+# region  Переборка всех файлов сета или последние
+OBNOVLENIE = 1
+OBNOVLENIE_file_all = "y"
 # endregion
 
 
@@ -103,6 +119,26 @@ class DOC:
         x.to_excel(PUT + "TEMP\\" + name, index=False)
 """функция сохранения файлов по папкам"""
 class OPEN:
+    def Day_fales(self):
+        for root, dirs, files in os.walk(PUT_SEBES):
+            for file in files:
+                file_path = os.path.join(root, file)
+
+                df = pd.read_csv(file_path, sep="\t", encoding="utf-8", skiprows=2,
+                                 names=("По дням", "Склад магазин.Наименование", "Номенклатура", "Себестоимость", "ВесПродаж"))
+                df = df.loc[df["Склад магазин.Наименование"] != "Итого"]
+                df = df.loc[df["По дням"] != "Итого"]
+                l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
+                for w in l_mag:
+                    df = df[~df['Склад магазин.Наименование'].str.contains(w)]
+                # Получите уникальные даты из столбца "По дням"
+                dates = df["По дням"].unique()
+                # Переберите каждую дату
+                for date in dates:
+                    day_df = df[df["По дням"] == date]
+                    file_name = os.path.join(PUT_SEBES_day, date + ".txt")
+                    day_df.to_csv(file_name, sep="\t", encoding="ANSI", decimal=".", index=False)
+    """разбиение файлов на дни себестоемость"""
     def open_exel(self, put):
         # получение списка файлов в указанном пути
         all_files = []
@@ -115,12 +151,22 @@ class OPEN:
         return
     """отвечает за поик папок в указанном пути CSV"""
     def open_posledniy(self, put, number):
+        print(put)
         poisk_2max = os.listdir(put)
         format = '%d.%m.%Y'
         fail = [f for f in poisk_2max if f.endswith('.xlsx') and len(f) > 10 and datetime.strptime(f[:10], format)]
         fail.sort(key=lambda x: datetime.strptime(x[:10], format))
         latest_files = fail[-number:]
-        files = [os.path.join(PUT_SET, f) for f in latest_files]
+
+        # Копируем последние 2 файла в папку x
+        for file in latest_files:
+            source_file = os.path.join(put, file)
+            destination_file = os.path.join(PUT_SET_copy, file)
+            shutil.copy(source_file, destination_file)
+
+        # Возвращаем пути к скопированным файлам
+        files = [os.path.join(PUT_SET_copy, f) for f in latest_files]
+        print(files)
         return files
 """тветчает поиск фалов в папках"""
 class FLOAT:
@@ -145,17 +191,17 @@ class FLOAT:
                                           .round(2))
         return name_data
     """для одного столбца"""
-
-
 """тветчает за присвоение чсловых значени"""
 class SET_RETEIL:
     def C_1(self):
+        OPEN().Day_fales()
+
         return
     """отвечает за загрузкуданных сибестоймости из 1 с"""
     def Set_sales(self):
         SET_RETEIL().Set_chek()
-        all_files = OPEN().open_exel(put=PUT_SET)
-        for file in all_files:
+        files = OPEN().open_posledniy(put=PUT_SET, number= 1)
+        for file in files:
             MEMORY().mem_total(x="Загрузка - Set_sales: " + os.path.basename(file))
             set_sales_01 = pd.read_excel(file, parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y %H:%M:%S" )
             # фильтрация таблицы продаж
@@ -188,7 +234,7 @@ class SET_RETEIL:
             gc.collect()
     """твечает за загрузку данных о продажах етретейла"""
     def Set_chek(self):
-        files = OPEN().open_posledniy(put=PUT_SET, number= 2)
+        files = OPEN().open_posledniy(put=PUT_SET, number= 1)
         MEMORY().mem_total(x="Загрузка - Set_chek: ")
         for file in files:
             set_01 = pd.read_excel(file, parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y %H:%M:%S" )
@@ -264,4 +310,6 @@ class SPRAVKA:
 """ормирование справочников"""
 
 
-SET_RETEIL().Set_sales()
+#SET_RETEIL().Set_sales()
+
+OPEN().Day_fales()
