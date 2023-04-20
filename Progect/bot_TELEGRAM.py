@@ -25,7 +25,7 @@ gc.enable()
 
 # Отправлять ли в группу вечеринка аналитиков Сообщения?
 BOT_ANALITIK = "n"
-BOT_RUK = "y"
+BOT_RUK = "n"
 # пересчитать данные
 DATA = "n"
 
@@ -716,4 +716,4 @@ class BOT:
                   f"Пока что все.")"""
 """оотправка сообщения в группу аналитик"""
 #BOT().bot_mes(mes="https://pythonpip.ru/examples/kak-postroit-grafik-funktsii-na-python-pri-pomoschi-matplotlib")
-BOT().bot_raschet()
+#BOT().bot_raschet()

@@ -14,7 +14,7 @@ import requests
 # from memory_profiler import profile
 import numpy as np
 import calendar
-#import bot_TELEGRAM as bot
+import bot_TELEGRAM as bot
 import winsound
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
@@ -232,6 +232,7 @@ class SET_RETEIL:
             MEMORY().mem_total(x="Обработан - Set_sales: " + os.path.basename(file))
             del set_sales
             gc.collect()
+            bot.BOT().bot_mes(mes="Автообновление дашборда")
     """твечает за загрузку данных о продажах етретейла"""
     def Set_chek(self):
         files = OPEN().open_posledniy(put=PUT_SET, number= 1)
