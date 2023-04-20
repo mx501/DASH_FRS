@@ -79,7 +79,7 @@ class RENAME:
         replacements = pd.read_excel(PUT + "Справочники\\ДЛЯ ЗАМЕНЫ.xlsx",
                                      sheet_name="Лист1")
         rng = len(replacements)
-        for i in tqdm(range(rng), desc="Переименование - " + name, colour="#808080"): name_data[name_col] = \
+        for i in range(rng): name_data[name_col] = \
             name_data[name_col].str.replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
         return name_data
     """функция переименование"""
@@ -140,7 +140,6 @@ class OPEN:
                     day_df.to_csv(file_name, sep="\t", encoding="ANSI", decimal=".", index=False)
                     MEMORY().mem_total(x="Разбиение по дням: " + os.path.basename(file))
                 del df
-
     """разбиение файлов на дни себестоемость"""
     def open_exel(self, put):
         # получение списка файлов в указанном пути
@@ -256,10 +255,7 @@ class SET_RETEIL:
 
             # замена названий в файлах магазины
             RENAME().Rread(name_data=set_check, name_col="Магазин 1C", name="set_check")
-            set_check_date = set_check["Дата/Время чека"].max()
-            with open(PUT + "Дата и время обновления\DATE.txt", "w") as f:
-                f.write(str(set_check_date))
-            del set_check_date
+
             set_check["Дата/Время чека"] = set_check["Дата/Время чека"].dt.date
             # Формирование ID Чека
             set_check["ID_Chek"] =  set_check["Магазин"].astype(int).astype(str) + set_check["Касса"].astype(int).astype(str) + set_check["Чек"].astype(int).astype(str) + set_check["Дата/Время чека"].astype(str)
