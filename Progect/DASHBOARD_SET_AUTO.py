@@ -255,6 +255,10 @@ class SET_RETEIL:
 
             # замена названий в файлах магазины
             RENAME().Rread(name_data=set_check, name_col="Магазин 1C", name="set_check")
+            set_check_date = set_check["Дата/Время чека"].max()
+            with open(PUT + "Дата и время обновления\DATE.txt", "w") as f:
+                f.write(str(set_check_date))
+            del set_check_date
 
             set_check["Дата/Время чека"] = set_check["Дата/Время чека"].dt.date
             # Формирование ID Чека
