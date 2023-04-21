@@ -310,10 +310,35 @@ class PRONOZ:
 class SPRAVKA:
     def Magazin(self):
         return
+    def Nomenckaltura(self):
+        nom = pd.read_csv(PUT + "Справочники\\Справочник номенклатуры\\1.txt", sep="\t",encoding="utf-8", skiprows= 1, names=("дата","Наименование","Группа(альт)","Подгруппа(альт)"))
+        nom = nom.drop("дата", axis=1)
+
+        #nom["Группа(альт)"] = nom["Группа(альт)"].str.replace(" ВЫВЕДЕННЫЕ", "")
+
+        nom= nom.drop_duplicates()
+        nom_group_prod = pd.read_excel(PUT + "Справочники\\Справочник номенклатуры\\Справочник Калькулятор франшизы.xlsx")
+
+        nom_group_prod = nom_group_prod.rename(columns={"Номенклатурная группа": "Группа(альт)","Группа товаров":"Группа товаров Франшиза"})
+        nom = nom.merge(nom_group_prod, on=["Группа(альт)"], how="left")
+        nom = nom.fillna("0")
+        nom.to_excel(PUT+"Справочники\\Справочник номенклатуры\\С.xlsx", index=False)
+        nom_group_prodakt = pd.read_excel("https://docs.google.com/spreadsheets/d/1dNt8qpZL_ST8aF_iBqV7oVQvH1tsExMd6uLCiC_UtfQ/export?exportFormat=xlsx")
+        nom_group_prodakt = nom_group_prodakt.rename(columns={"Входит в группу": "Группа(альт)"})
+
+        nom = nom.merge(nom_group_prodakt, on=["Группа(альт)"], how="left")
+        nom = nom.fillna("0")
+        nom.to_excel(PUT + "Справочники\\Справочник номенклатуры\\k.xlsx", index=False)
+        print(nom_group_prodakt)
+        print(nom)
+
+        return
     """Отвечает за формирование справочника"""
 """ормирование справочников"""
 
 
-SET_RETEIL().Set_sales()
+#SET_RETEIL().Set_sales()
 
 #OPEN().Day_fales()
+
+SPRAVKA().Nomenckaltura()

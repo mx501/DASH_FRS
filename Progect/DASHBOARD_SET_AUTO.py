@@ -14,8 +14,7 @@ import requests
 # from memory_profiler import profile
 import numpy as np
 import calendar
-import bot_TELEGRAM as bot
-import winsound
+#import bot_TELEGRAM as bot
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
 gc.enable()
@@ -232,7 +231,7 @@ class SET_RETEIL:
             MEMORY().mem_total(x="Обработан - Set_sales: " + os.path.basename(file))
             del set_sales
             gc.collect()
-            bot.BOT().bot_mes(mes="Автообновление дашборда")
+            BOT().bot_mes(mes="Автообновление дашборда")
     """твечает за загрузку данных о продажах етретейла"""
     def Set_chek(self):
         files = OPEN().open_posledniy(put=PUT_SET, number= 1)
@@ -313,6 +312,24 @@ class SPRAVKA:
         return
     """Отвечает за формирование справочника"""
 """ормирование справочников"""
+class BOT:
+    def bot_mes(self, mes):
+        # получение ключей
+        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
+        keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
+        token = keys_dict.get('token')
+        test = keys_dict.get('test')
+        # TEST ####################################################
+        url = f'https://api.telegram.org/bot{token}/sendMessage'
+        # Параметры запроса для отправки сообщения
+        params = {'chat_id': test, 'text':mes}
+        # Отправка запроса на сервер Telegram для отправки сообщения
+        response = requests.post(url, data=params)
+        # Проверка ответа от сервера Telegram
+        if response.status_code == 200:
+            print('Отправлено Test')
+        else:
+            print(f'Ошибка при отправке Test: {response.status_code}')
 
 
 SET_RETEIL().Set_sales()

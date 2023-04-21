@@ -26,6 +26,7 @@ gc.enable()
 # Отправлять ли в группу вечеринка аналитиков Сообщения?
 BOT_ANALITIK = "n"
 BOT_RUK = "n"
+TY_GROP ="y"
 # пересчитать данные
 DATA = "n"
 
@@ -131,7 +132,6 @@ class BOT:
         test = keys_dict.get('test')
         analitik = keys_dict.get('analitik')
         BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
-
         # TEST ####################################################
         url = f'https://api.telegram.org/bot{token}/sendMessage'
         # Параметры запроса для отправки сообщения
@@ -144,29 +144,7 @@ class BOT:
         else:
             print(f'Ошибка при отправке Test: {response.status_code}')
 
-        # Группа аналитик ##########################################
-        if BOT_ANALITIK == "y":
-            url = f'https://api.telegram.org/bot{token}/sendMessage'
-            # Параметры запроса для отправки сообщения
-            params = {'chat_id': analitik, 'text': mes}
-            # Отправка запроса на сервер Telegram для отправки сообщения
-            response = requests.post(url, data=params)
-            # Проверка ответа от сервера Telegram
-            if response.status_code == 200: print('Отправлено Группа аналитик')
-            else: print(f'Ошибка при отправке Группа аналитик: {response.status_code}')
 
-        # Группа руководители ##########################################
-        if BOT_RUK_FRS == "y":
-            url = f'https://api.telegram.org/bot{token}/sendMessage'
-            # Параметры запроса для отправки сообщения
-            params = {'chat_id': BOT_RUK_FRS, 'text': mes}
-            # Отправка запроса на сервер Telegram для отправки сообщения
-            response = requests.post(url, data=params)
-            # Проверка ответа от сервера Telegram
-            if response.status_code == 200:
-                print('Сообщение успешно отправлено!')
-            else:
-                print(f'Ошибка при отправке Группа руководители: {response.status_code}')
     """отправка сообщений"""
     def bot_raschet(self):
         if DATA=="y":
@@ -253,7 +231,7 @@ class BOT:
         df = pd.read_csv(PUT + "TEMP\\BOT\\data\\test.csv", sep=';', encoding="ANSI", parse_dates=['По дням'])
         # получение списка териториалов
         TY_LIST = df.iloc[1:, 5].unique().tolist()
-        print(TY_LIST)
+
         # исключение из списка териториалов
         TY_LIST = [item for item in TY_LIST if item not in ['закрыт', 'нет магазина']]
 
@@ -290,7 +268,7 @@ class BOT:
 
         """ВЫЧИСЛЕНИЯ ДЛЯ ПРОШЛОГО ДНЯ"""
         for i in TY_LIST:
-            if BOT_RUK == "y":
+            if TY_GROP == "y":
                 time.sleep(30)
             """Выручка"""
             print("начало")
@@ -362,7 +340,7 @@ class BOT:
             # % Списания месяц
             df_month_prosent = df_month_sp_f/ df_month_sales_f
             df_month_prosent = '{:,.1%}'.format(df_month_prosent).replace(',', ' ')
-            print(df_month_prosent)
+
 
             # Списания ПОТЕРИ
             df_month_sp_POTERY_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth & (df["операции списания"] == "ПОТЕРИ")]["СписРуб"].sum()
@@ -370,8 +348,6 @@ class BOT:
             # % Списания за прошлый день
             df_month_sp_POTERY_prosent = df_month_sp_POTERY_f / df_month_sales_f
             df_month_sp_POTERY_prosent = '{:,.1%}'.format(df_month_sp_POTERY_prosent).replace(',', ' ')
-            print(df_month_sp_POTERY_f)
-            print(df_month_sp_POTERY_prosent)
             # Списания Дегустации
             df_month_sp_DEG_f = df.loc[(df["Менеджер"] == i) & filter_date_mounth & (df["операции списания"] == "Дегустации")]["СписРуб"].sum()
             df_month_sp_DEG = '{:,.0f}'.format(df_month_sp_DEG_f).replace(',', ' ')
@@ -415,7 +391,7 @@ class BOT:
 
             # endregion
             # region Переименование менеджеров
-            print(i)
+
             TY_LIST = i.replace('Турова  Анна Сергеевна', 'Турова А.С') \
                 .replace('Баранова Лариса Викторовна', 'Баранова Л.В') \
                 .replace('Геровский Иван Владимирович ', 'Геровский И.В') \
@@ -425,7 +401,7 @@ class BOT:
                 .replace('Бедарева Наталья Геннадьевна', 'Бедарева Н.Г') \
                 .replace('Сергеев Алексей Сергеевич', 'Сергеев А.С') \
                 .replace('Карпова Екатерина Эдуардовна', 'Карпова Е.Э')
-            print(i)
+
             # endregion
             # region Переименование месяцов.
             MONTHS = {1: 'январь',
@@ -473,7 +449,7 @@ class BOT:
             del df_day_sp
             del df_month_sp_f
             del df_month_sales_f
-        print("все")
+
         """BOT().bot_mes(mes="Здравствуйте, коллеги!"\
                         f"Для того, чтобы избежать возможных вопросов, я хотел бы уточнить некоторые важные моменты."\
                         f"Для учета проведенных дегустаций я выделяю отдельную строку, так как они должны проводиться регулярно, хотя бывают дни, когда их не проводят в некоторых магазинах."\
@@ -524,16 +500,17 @@ class BOT:
     """Обработка продаж формирование данных для Бота"""
     def bot_mes_html(self, mes):
         # получение ключей
-        print(BOT_RUK)
-        print(BOT_ANALITIK)
         dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
         keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
         token = keys_dict.get('token')
         test = keys_dict.get('test')
         analitik = keys_dict.get('analitik')
         BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
+        TY_id = keys_dict.get('TY_id')
+        print(TY_id)
 
-        #mes = 'Пример сообщения с <b>жирным</b> текстом и <a href="https://www.example.com">ссылкой</a>.'
+
+        mes = 'ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.'
 
         url = f'https://api.telegram.org/bot{token}/sendMessage'
 
@@ -574,6 +551,17 @@ class BOT:
                 print('Сообщение успешно Руководители!')
             else:
                 print(f'Ошибка при отправке Группа руководители: {response.status_code}')
+        if TY_GROP == "y":
+            url = f'https://api.telegram.org/bot{token}/sendMessage'
+            # Параметры запроса для отправки сообщения
+            params_ty = {'chat_id': TY_id, 'text': mes, 'parse_mode': 'HTML'}
+            # Отправка запроса на сервер Telegram для отправки сообщения
+            response_ty = requests.post(url, data=params_ty)
+            # Проверка ответа от сервера Telegram
+            if response_ty.status_code == 200:
+                print('Сообщение успешно Руководители!')
+            else:
+                print(f'Ошибка при отправке Группа руководители: {response_ty.status_code}')
     """отправка сообщений d в формате HTML"""
     def to_day(self):
         # считываем данные из файла
@@ -717,3 +705,4 @@ class BOT:
 """оотправка сообщения в группу аналитик"""
 #BOT().bot_mes(mes="https://pythonpip.ru/examples/kak-postroit-grafik-funktsii-na-python-pri-pomoschi-matplotlib")
 #BOT().bot_raschet()
+BOT().bot_mes_html(mes='ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.')
