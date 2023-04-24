@@ -384,7 +384,7 @@ class SET_RETEIL:
             Error_shtrix_01 = Error_shtrix_01.loc[Error_shtrix_01["id_магазин"].isnull()]
             ln_not_sctrix = len(Error_shtrix_01['номенклатура_1с'].unique())
             Error_shtrix = pd.concat([Error_shtrix, Error_shtrix_01], axis=0)
-            DOC().to_(x=Error_shtrix_01 , pyt=PUT + "Ошибки\\НЕТ_штрихкода.csv", name="dwd")
+
             del Error_shtrix_01
             gc.collect()
 
@@ -400,7 +400,7 @@ class SET_RETEIL:
             MEMORY().mem_total(x="Обработан - Set_sales: " + os.path.basename(file))
             del set_sales
             gc.collect()
-
+        DOC().to_(x=Error_shtrix, pyt=PUT + "Ошибки\\НЕТ_штрихкода.csv", name="dwd")
     """твечает за загрузку данных о продажах етретейла"""
     def Set_chek(self):
         files = OPEN().open_posledniy(put=PUT_SET, number= 20)
