@@ -55,8 +55,7 @@ class MEMORY:
 
 class RENAME:
     def Rread(self):
-        replacements = pd.read_excel(PUT + "DATA_2\\ДЛЯ ЗАМЕНЫ.xlsx",
-                                     sheet_name="Лист1")
+        replacements = pd.read_excel("https://docs.google.com/spreadsheets/d/1SfuC2zKUFt6PQOYhB8EEivRjy4Dz-o4WDL-IR7CT3Eg/export?exportFormat=xlsx")
         rng = len(replacements)
         return rng, replacements
     '''блок переименования'''
@@ -255,7 +254,7 @@ class NEW:
         fail = [f for f in poisk_2max if f.endswith('.xlsx') and len(f) > 10 and datetime.strptime(f[:10], format)]
 
         fail.sort(key=lambda x: datetime.strptime(x[:10], format))
-        latest_files = fail[-2:]
+        latest_files = fail[-5:]
 
         file_paths = [os.path.join(PUT_SET, f) for f in latest_files]
         # Список таблиц с данными за текущий месяц
@@ -268,7 +267,6 @@ class NEW:
             set_check = set_check.loc[set_check["Тип"] == "Продажа"]
             set_check = set_check.drop("Тип", axis=1)
             # удаление подарочных карт
-            print(set_check)
             PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
                        "подарочная карта КМ 500 НОВАЯ",
                        "подарочная карта КМ 1000 НОВАЯ")
@@ -322,9 +320,7 @@ class NEW:
             # округление
             set_check = set_check.round(2)
             set_check['Дата'] = pd.to_datetime(set_check['Дата'], format='%Y-%m-%d')
-            print(set_check)
             set_check['Дата'] = set_check['Дата'].dt.strftime('%d.%m.%Y')
-            print(set_check)
             set_check.to_excel(PUT_SET_to + os.path.basename(file), index=False)
             if geo == "w":
                 set_check.to_excel("P:\\Фирменная розница\\ФРС\\Данные из 1 С\\Чеки Set_обработанные\\" + os.path.basename(file), index=False)
@@ -786,11 +782,11 @@ class NEW:
                     # Обработка файла списания
                     # открывает аналогичный года по маке файла продаж
                     file_s = PUT + "Списания\\Текущий месяц\\"
-                    spisisania = None
+                    spisisania = pd.DataFrame()
                     for files in os.listdir(file_s):
-
                         spisisania = pd.read_csv(file_s+files, sep="\t", encoding='utf-8', skiprows=7, parse_dates=['По дням'], dayfirst=True,
                                                  names=("Склад магазин.Наименование", "Номенклатура", 'По дням', "операции списания", "СписРуб", "списруб_без_ндс"))
+                        print(" eeee\n", spisisania)
                         for w in l_mag:
                             spisisania = spisisania[~spisisania['Склад магазин.Наименование'].str.contains(w)]
                         # переименование магазинов
@@ -800,6 +796,7 @@ class NEW:
                         # Фильтрация файла списания меньше или равно файлам продаж дaта
 
                         spisisania = spisisania.loc[(spisisania['По дням'] <= max_sales) & (spisisania['По дням'] >= min_sales)]
+                        print(max_sales  , min_sales, "\n", spisisania)
                         # убрать строку итого
                         spisisania = spisisania.loc[spisisania["Склад магазин.Наименование"] != "Итого"]
                         # чистка мусора списания
@@ -811,6 +808,7 @@ class NEW:
 
                     # обьеденение таблиц списания и продаж
                     df = pd.concat([df, spisisania], axis=0)
+                    print(df)
                     # лог
                     # сохранение файла
                     MEMORY().mem(x=df, text="1")

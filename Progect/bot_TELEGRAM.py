@@ -26,7 +26,7 @@ gc.enable()
 # Отправлять ли в группу вечеринка аналитиков Сообщения?
 BOT_ANALITIK = "n"
 BOT_RUK = "n"
-TY_GROP ="y"
+TY_GROP ="n"
 # пересчитать данные
 DATA = "n"
 
@@ -130,8 +130,8 @@ class BOT:
         keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
         token = keys_dict.get('token')
         test = keys_dict.get('test')
-        analitik = keys_dict.get('analitik')
-        BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
+        #analitik = keys_dict.get('analitik')
+        #BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
         # TEST ####################################################
         url = f'https://api.telegram.org/bot{token}/sendMessage'
         # Параметры запроса для отправки сообщения
@@ -510,7 +510,7 @@ class BOT:
         print(TY_id)
 
 
-        mes = 'ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.'
+        #mes = 'ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.'
 
         url = f'https://api.telegram.org/bot{token}/sendMessage'
 
@@ -705,4 +705,4 @@ class BOT:
 """оотправка сообщения в группу аналитик"""
 #BOT().bot_mes(mes="https://pythonpip.ru/examples/kak-postroit-grafik-funktsii-na-python-pri-pomoschi-matplotlib")
 #BOT().bot_raschet()
-BOT().bot_mes_html(mes='ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.')
+#BOT().bot_mes_html(mes='ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.')
