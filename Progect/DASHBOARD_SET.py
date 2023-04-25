@@ -13,8 +13,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 # ######
 
-
-
 import psutil
 import shutil
 import xlsxwriter
@@ -301,113 +299,112 @@ class OPEN:
                             dowload_yes.click()
                 #   endregion
 
-        if Selenium == 1:
-            folder_path = r"C:\Users\lebedevvv\Downloads"  # путь до папки, которую необходимо мониторить
-            partial_name = "PurchasePositions"  # подстрока, которую необходимо найти
-            found_file = False
+                if Selenium == 1:
+                    folder_path = r"C:\Users\lebedevvv\Downloads"  # путь до папки, которую необходимо мониторить
+                    partial_name = "PurchasePositions"  # подстрока, которую необходимо найти
+                    found_file = False
 
-            while not found_file:
-                for filename in os.listdir(folder_path):
-                    if partial_name in filename and filename.endswith(".xlsx"):
-                        # найден файл, удовлетворяющий условиям
-                        print(f"Найден файл: {filename}")
-                        found_file = True
+                    while not found_file:
+                        for filename in os.listdir(folder_path):
+                            if partial_name in filename and filename.endswith(".xlsx"):
+                                # найден файл, удовлетворяющий условиям
+                                print(f"Найден файл: {filename}")
+                                found_file = True
 
-                # Проверьте, был ли найден файл. Если нет, подождите несколько секунд и повторите попытку
-                if not found_file:
-                    print(f"Файл {partial_name} не найден. Ожидание...")
-                    t.sleep(5)  # задержка в 5 секунд перед следующей попыткой поиска файла
-        else:
-            t.sleep(180)
-        t.sleep(5)
-        ##            driver.close()
-        ##            driver.switch_to.window(driver.window_handles[0])
+                            # Проверьте, был ли найден файл. Если нет, подождите несколько секунд и повторите попытку
+                            if not found_file:
+                                print(f"Файл {partial_name} не найден. Ожидание...")
+                                t.sleep(5)  # задержка в 5 секунд перед следующей попыткой поиска файла
+                            else:
+                                t.sleep(180)
+                            t.sleep(5)
+                            ##            driver.close()
+                            ##            driver.switch_to.window(driver.window_handles[0])
 
-        path_download = r"C:\Users\lebedevvv\Downloads"
+                            path_download = r"C:\Users\lebedevvv\Downloads"
 
-        print("Загрузка списка маазинов....")
-        spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
-        spqr = spqr[['ID', '!МАГАЗИН!']]
-        files = os.listdir(path_download)
-        print(files, " и ", path_download)
-        for f in files:
-            d = len(f)
-            file_name = f[0:17]
-            file = path_download + "\\" + f
-            if str(file_name) == "PurchasePositions":
-                df = pd.read_excel(file, skiprows=1)
-                MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file))
+                    print("Загрузка списка маазинов....")
+                    spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
+                    spqr = spqr[['ID', '!МАГАЗИН!']]
+                    files = os.listdir(path_download)
+                    print(files, " и ", path_download)
+                    for f in files:
+                        d = len(f)
+                        file_name = f[0:17]
+                        file = path_download + "\\" + f
+                        if str(file_name) == "PurchasePositions":
+                            df = pd.read_excel(file, skiprows=1)
+                            MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file))
 
-                d = df['Дата/Время чека'][1]
-                new_filename = d[0:10] + ".xlsx"
-                df = df.rename(columns={"Магазин": 'ID'})
-                table = df.merge(spqr[['!МАГАЗИН!', 'ID']], on='ID', how="left")
-                del df
-                table = table.loc[table["Тип"].notnull()]
-                table['!МАГАЗИН!'] = table['!МАГАЗИН!'].astype("str")
-                table['Наименование товара'] = table['Наименование товара'].fillna("неизвестно").astype("str")
+                            d = df['Дата/Время чека'][1]
+                            new_filename = d[0:10] + ".xlsx"
+                            df = df.rename(columns={"Магазин": 'ID'})
+                            table = df.merge(spqr[['!МАГАЗИН!', 'ID']], on='ID', how="left")
+                            del df
+                            table = table.loc[table["Тип"].notnull()]
+                            table['!МАГАЗИН!'] = table['!МАГАЗИН!'].astype("str")
+                            table['Наименование товара'] = table['Наименование товара'].fillna("неизвестно").astype("str")
 
-                # ######################################################################################### Загузка названий с 1 с
-                spravka_nom = pd.read_csv(PUT + "\\Справочники\\Справочник номенклатуры\\1.txt", sep="\t", skiprows=1, encoding="utf-8",
-                                          names=('номенклатура_1с', "cрок_годности", "группа", "подгруппа", "Штрихкод",))
-                spravka_dop = pd.read_excel(PUT + "\\Справочники\\Справочник номенклатуры\\Коректировка штрих кодов.xlsx")
-                spravka_nom['номенклатура_1с'] = spravka_nom['номенклатура_1с'].fillna("неизвестно").astype("str")
-                table["Штрихкод"] = table["Штрихкод"].astype("str").str.replace(".0", "")
-                spravka_nom["Штрихкод"] = spravka_nom["Штрихкод"].astype("str").str.replace(".0", "")
-                spravka_nom["штрихкод_1c"] = spravka_nom["Штрихкод"]
-                table = table.merge(spravka_nom[['номенклатура_1с', "Штрихкод"]],
-                                    on=["Штрихкод"], how="left").reset_index(drop=True)
-                # ############################################################################################
-                sales_day = table.copy()
-                # удаление микромаркетов
-                l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
-                for w in l_mag:
-                    sales_day = sales_day[~sales_day["!МАГАЗИН!"].str.contains(w)].reset_index(drop=True)
+                            # ######################################################################################### Загузка названий с 1 с
+                            spravka_nom = pd.read_csv(PUT + "\\Справочники\\Справочник номенклатуры\\1.txt", sep="\t", skiprows=1, encoding="utf-8",
+                                                      names=('номенклатура_1с', "cрок_годности", "группа", "подгруппа", "Штрихкод",))
+                            spravka_dop = pd.read_excel(PUT + "\\Справочники\\Справочник номенклатуры\\Коректировка штрих кодов.xlsx")
+                            spravka_nom['номенклатура_1с'] = spravka_nom['номенклатура_1с'].fillna("неизвестно").astype("str")
+                            table["Штрихкод"] = table["Штрихкод"].astype("str").str.replace(".0", "")
+                            spravka_nom["Штрихкод"] = spravka_nom["Штрихкод"].astype("str").str.replace(".0", "")
+                            spravka_nom["штрихкод_1c"] = spravka_nom["Штрихкод"]
+                            table = table.merge(spravka_nom[['номенклатура_1с', "Штрихкод"]],
+                                                on=["Штрихкод"], how="left").reset_index(drop=True)
+                            # ############################################################################################
+                            sales_day = table.copy()
+                            # удаление микромаркетов
+                            l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
+                            for w in l_mag:
+                                sales_day = sales_day[~sales_day["!МАГАЗИН!"].str.contains(w)].reset_index(drop=True)
 
-                # удаление подарочных карт
-                PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
-                           "подарочная карта КМ 500 НОВАЯ",
-                           "подарочная карта КМ 1000 НОВАЯ")
-                for x in PODAROK:
-                    sales_day = sales_day[~sales_day['Наименование товара'].str.contains(x)]
-                sales_day.to_excel(PUT + "Selenium_set_data\\Tекущий день\\" + new_filename, index=False)
-                bot.BOT().bot_mes(mes="Сохранен фаил общих продаж: " + str(new_filename))
-                # обработка файла чеков
-                sales_day_cehk = OPEN().selenium_day_chek(name_datafreme=sales_day, name_file=str(new_filename))
-                # сохранение Сгрупированного файла чеков
-                sales_day_cehk.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Чеки\\" + new_filename, index=False)
-                bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename))
+                            # удаление подарочных карт
+                            PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
+                                       "подарочная карта КМ 500 НОВАЯ",
+                                       "подарочная карта КМ 1000 НОВАЯ")
+                            for x in PODAROK:
+                                sales_day = sales_day[~sales_day['Наименование товара'].str.contains(x)]
+                            sales_day.to_excel(PUT + "Selenium_set_data\\Tекущий день\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен фаил общих продаж: " + str(new_filename))
+                            # обработка файла чеков
+                            sales_day_cehk = OPEN().selenium_day_chek(name_datafreme=sales_day, name_file=str(new_filename))
+                            # сохранение Сгрупированного файла чеков
+                            sales_day_cehk.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Чеки\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename))
 
-                # сохранение Сгрупированного файла продаж;
-                sales_day_sales = OPEN().selenium_day_sales(name_datafreme=sales_day, name_file=str(new_filename))
+                            # сохранение Сгрупированного файла продаж;
+                            sales_day_sales = OPEN().selenium_day_sales(name_datafreme=sales_day, name_file=str(new_filename))
 
-                sales_day_sales.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + new_filename, index=False)
-                bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename[:-5]))
+                            sales_day_sales.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename[:-5]))
 
-                del sales_day_cehk
-                del sales_day
-                gc.collect()
-                # region СОХРАНЕНИЕ УДАЛЕННЫХ ДАННЫХ
-                # Сохранение отдельно вейдинги и микромаркеты
-                mask_VEN = table["!МАГАЗИН!"].str.contains("|".join(l_mag))
-                sales_day_VEN = table[mask_VEN]
-                sales_day_VEN.to_excel(PUT + "Selenium_set_data\\Вейдинги и микромаркет\\" + new_filename, index=False)
-                del sales_day_VEN
-                gc.collect()
+                            del sales_day_cehk
+                            del sales_day
+                            gc.collect()
+                            # region СОХРАНЕНИЕ УДАЛЕННЫХ ДАННЫХ
+                            # Сохранение отдельно вейдинги и микромаркеты
+                            mask_VEN = table["!МАГАЗИН!"].str.contains("|".join(l_mag))
+                            sales_day_VEN = table[mask_VEN]
+                            sales_day_VEN.to_excel(PUT + "Selenium_set_data\\Вейдинги и микромаркет\\" + new_filename, index=False)
+                            del sales_day_VEN
+                            gc.collect()
 
-                # Сохранение отдельно подарочные карты
-                mask_Podarok = table['Наименование товара'].str.contains("|".join(PODAROK))
-                sales_day_Podarok = table[mask_Podarok]
+                            # Сохранение отдельно подарочные карты
+                            mask_Podarok = table['Наименование товара'].str.contains("|".join(PODAROK))
+                            sales_day_Podarok = table[mask_Podarok]
 
-                sales_day_Podarok.to_excel(PUT + "Selenium_set_data\\Подарочные карты\\" + new_filename, index=False)
-                del sales_day_Podarok
-                gc.collect()
-                # endregion
-
-                os.remove(file)
-        if Selenium_skachka == 1:
-            driver.close()
-            driver.quit()
+                            sales_day_Podarok.to_excel(PUT + "Selenium_set_data\\Подарочные карты\\" + new_filename, index=False)
+                            del sales_day_Podarok
+                            gc.collect()
+                            # endregion
+                            os.remove(file)
+            if Selenium_skachka == 1:
+                driver.close()
+                driver.quit()
     """Получение данных с сетретейла"""
     def selenium_day(self):
 

@@ -134,9 +134,9 @@ class BOT:
         #BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
         # TEST ####################################################
         url = f'https://api.telegram.org/bot{token}/sendMessage'
-        # Параметры запроса для отправки сообщения
+        # Параметры
         params = {'chat_id': test, 'text':mes}
-        # Отправка запроса на сервер Telegram для отправки сообщения
+        # ЗАПРОС ОТПРАВКА
         response = requests.post(url, data=params)
         # Проверка ответа от сервера Telegram
         if response.status_code == 200:
