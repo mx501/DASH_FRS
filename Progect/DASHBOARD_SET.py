@@ -156,7 +156,6 @@ class OPEN:
             options = webdriver.ChromeOptions()
             options.add_argument("user_agent=" + ua.random)
             driver = webdriver.Chrome(chrome_options=options)
-
             url = 'http://10.32.2.51:8443/operday/checks'
             driver.get(url)
             t.sleep(5)
@@ -173,21 +172,18 @@ class OPEN:
             login_button = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/button/span[1]')
             login_button.click()
             t.sleep(15)
-
             def back(pole):
                 print("Возврат")
                 i = 0
                 while i < 12:
                     pole.send_keys(Keys.BACKSPACE)
                     i += 1
-
             try:
                 menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
             except:
                 print(menu.text)
             finally:
                 menu.click()
-
             try:
                 menu_op_day_cheks = WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]/span')))
@@ -216,7 +212,7 @@ class OPEN:
             # region СПИСОК ДАТ
 
             start_date = date(2023, 1, 1)  # начальная дата
-            end_date = date(2024, 1, 1)  # конечная дата
+            end_date = date(2024, 4, 24)  # конечная дата
             delta = timedelta(days=1)  # шаг даты
 
             dates_list = []
@@ -225,7 +221,7 @@ class OPEN:
                 dates_list.append(start_date.strftime('%d.%m.%Y'))
                 start_date += delta
             spisok_d = dates_list
-            spisok_d = ['23.04.2023', '24.04.2023']
+            #spisok_d = ['23.04.2023', '24.04.2023']
             for day in spisok_d:
                 new_day_1 = day + " 00:00"
                 new_day_2 = day + " 23:59"
@@ -242,7 +238,6 @@ class OPEN:
                     menu_data_n.send_keys(new_day_1)
                     print('sleep')
                 t.sleep(2)
-
                 try:
                     menu_data_k = WebDriverWait(driver, 15).until(EC.presence_of_element_located(
                         (By.XPATH, '/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[2]/div/div/div/input')))
@@ -255,7 +250,6 @@ class OPEN:
                     print('sleep')
                 t.sleep(2)
                 # endregion
-
                 try:
                     menu_primenit = WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/button[2]/span[1]')))
@@ -264,7 +258,6 @@ class OPEN:
                     menu_primenit.click()
                 t.sleep(2)
                 down = ""
-
                 try:
                     dowload = WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located(
@@ -274,18 +267,13 @@ class OPEN:
                 finally:
                     if down == "no":
                         print("нет кнопки")
+                    else:dowload.click()
 
-
-                    else:
-                        dowload.click()
-
-                    try:
-                        dowload_all = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/ul/li[2]')))
+                    try:dowload_all = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/ul/li[2]')))
                     finally:
                         dowload_all.click()
                         t.sleep(10)
                         x = ""
-
                     try:
                         dowload_yes = WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div/div[3]/button[2]/span[1]')))
@@ -297,29 +285,24 @@ class OPEN:
                         else:
                             t.sleep(3)
                             dowload_yes.click()
-                #   endregion
 
                 if Selenium == 1:
                     folder_path = r"C:\Users\lebedevvv\Downloads"  # путь до папки, которую необходимо мониторить
                     partial_name = "PurchasePositions"  # подстрока, которую необходимо найти
                     found_file = False
-
+                    bot.BOT().bot_mes(mes="Ожидание файла....")
                     while not found_file:
                         for filename in os.listdir(folder_path):
                             if partial_name in filename and filename.endswith(".xlsx"):
                                 # найден файл, удовлетворяющий условиям
                                 print(f"Найден файл: {filename}")
                                 found_file = True
-
+                                bot.BOT().bot_mes(mes="Фаил найден....")
+                                t.sleep(5)
                             # Проверьте, был ли найден файл. Если нет, подождите несколько секунд и повторите попытку
                             if not found_file:
                                 print(f"Файл {partial_name} не найден. Ожидание...")
                                 t.sleep(5)  # задержка в 5 секунд перед следующей попыткой поиска файла
-                            else:
-                                t.sleep(180)
-                            t.sleep(5)
-                            ##            driver.close()
-                            ##            driver.switch_to.window(driver.window_handles[0])
 
                             path_download = r"C:\Users\lebedevvv\Downloads"
 
@@ -378,7 +361,6 @@ class OPEN:
 
                             # сохранение Сгрупированного файла продаж;
                             sales_day_sales = OPEN().selenium_day_sales(name_datafreme=sales_day, name_file=str(new_filename))
-
                             sales_day_sales.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + new_filename, index=False)
                             bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename[:-5]))
 
@@ -390,6 +372,7 @@ class OPEN:
                             mask_VEN = table["!МАГАЗИН!"].str.contains("|".join(l_mag))
                             sales_day_VEN = table[mask_VEN]
                             sales_day_VEN.to_excel(PUT + "Selenium_set_data\\Вейдинги и микромаркет\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен Вейдинг: " + str(new_filename[:-5]))
                             del sales_day_VEN
                             gc.collect()
 
@@ -398,16 +381,24 @@ class OPEN:
                             sales_day_Podarok = table[mask_Podarok]
 
                             sales_day_Podarok.to_excel(PUT + "Selenium_set_data\\Подарочные карты\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен Подарочные карты: " + str(new_filename[:-5]))
                             del sales_day_Podarok
                             gc.collect()
+
+                            # Сохранение отдельно анулированные и возвращенные чеки
+                            sales_null  = table.loc[(table["Тип"] =="Отмена") | (table["Тип"] =="Возврат")]
+                            sales_null.to_excel(PUT + "Selenium_set_data\\Анулированные и возврат чеки\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен Возвраты: " + str(new_filename[:-5]))
+                            del sales_null
+                            gc.collect()
+
                             # endregion
                             os.remove(file)
             if Selenium_skachka == 1:
                 driver.close()
                 driver.quit()
-    """Получение данных с сетретейла"""
+    """Получение данных с сетретейла НЕСКОЛЬКО ДАТ"""
     def selenium_day(self):
-
         if Selenium_skachka == 1:
             # region СКАЧИВАНИЕ С САЙТА
             warnings.filterwarnings('ignore')  ##отключаем warnings
@@ -415,7 +406,6 @@ class OPEN:
             options = webdriver.ChromeOptions()
             options.add_argument("user_agent=" + ua.random)
             driver = webdriver.Chrome(chrome_options=options)
-
 
             url = 'http://10.32.2.51:8443/operday/checks'
             driver.get(url)
@@ -433,45 +423,34 @@ class OPEN:
             login_button = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/button/span[1]')
             login_button.click()
             t.sleep(15)
-
             def back(pole):
                 print("Возврат")
                 i = 0
                 while i < 12:
                     pole.send_keys(Keys.BACKSPACE)
                     i += 1
-
-            try:
-                menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
-            except:
-                print(menu.text)
-            finally:
-                menu.click()
-
-            try:
-                menu_op_day_cheks = WebDriverWait(driver, 15).until(
+            try:menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
+            except:print(menu.text)
+            finally:menu.click()
+            try: menu_op_day_cheks = WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]/span')))
-            except:
-                d = "no"
+            except:d = "no"
             finally:
                 if d == "no":
                     print("но")
-                    try:
-                        menu_op_day = WebDriverWait(driver, 15).until(
+                    try: menu_op_day = WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[1]/span')))
                     finally:
                         t.sleep(2)
                         menu_op_day.click()
                         print("click operday")
-                    try:
-                        menu_op_day_cheks = WebDriverWait(driver, 15).until(
+                    try: menu_op_day_cheks = WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]')))
                     finally:
                         t.sleep(2)
                         menu_op_day_cheks.click()
                         print("m")
-                else:
-                    menu_op_day_cheks.click()
+                else: menu_op_day_cheks.click()
             print("Ура")
             # region СПИСОК ДАТ
 
@@ -513,7 +492,6 @@ class OPEN:
                    menu_data_k.send_keys(new_day_2)
                    print('sleep')
                 t.sleep(2)
-            #endregion
 
                 try:
                     menu_primenit = WebDriverWait(driver, 15).until(
@@ -523,7 +501,6 @@ class OPEN:
                     menu_primenit.click()
                 t.sleep(2)
                 down = ""
-
                 try:
                     dowload = WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/div[1]/div/div/button/span[1]')))
@@ -669,8 +646,7 @@ class OPEN:
 
 
                 os.remove(file)
-
-    """Получение данных с сетретейла"""
+    """Получение данных с сетретейла ОБНОВЛЕНИЕ ПОСЛЕДНЕГО ДНЯ"""
     def selenium_day_chek(self, name_datafreme, name_file):
         MEMORY().mem_total(x="Формирование чеков: ")
         sales_day_cehk = name_datafreme[["Тип", "!МАГАЗИН!", "ID", "Дата/Время чека", "Касса", "Чек", "Стоимость позиции", "Код товара"]]
@@ -723,9 +699,9 @@ class OPEN:
         MEMORY().mem_total(x="Обработан - Фаил чеков: " + str(name_file))
 
         return sales_day_cehk
-
+    """ОБРАБОТКА ЧЕКОВ"""
     def selenium_day_sales(self, name_datafreme, name_file):
-        print("ОБРАБОТКА ПРОДАЖ")
+        bot.BOT().bot_mes(mes="Создание файла продаж... ")
         OPEN().selenium_day_Spisania()
         sales_day_sales = name_datafreme[["Дата/Время чека","ID","!МАГАЗИН!","Тип","Наименование товара","номенклатура_1с","Количество","Стоимость позиции","Сумма скидки"]]
         sales_day_sales = sales_day_sales.loc[sales_day_sales["Тип"] == "Продажа"]
@@ -741,18 +717,29 @@ class OPEN:
             .sort_values("!МАГАЗИН!", ascending=False).reset_index(drop=True)
         print(sales_day_sales)
 
-
-
-
+        # Доавление списания
+        OPEN().selenium_day_Spisania()
+        file_spis = PUT + "Данные 1с\\Списания\\" + name_file[:-5] + ".txt"
+        if os.path.exists(file_spis):
+            spis = pd.read_csv(file_spis, sep="\t", skiprows=1,encoding="utf-8",
+                                    names=("!МАГАЗИН!","операции","Причина списания","Дата/Время чека", "номенклатура_1с","единица_списания","сумма_списания", "количество_писания", "количество_вес_списания"))
+            print(spis)
+            print(sales_day_sales)
+            spis["Дата/Время чека"] = spis["Дата/Время чека"].astype("datetime64[ns]")
+            bot.BOT().bot_mes(mes="Найден фаил списаний...")
+            sales_day_sales = pd.concat([sales_day_sales, spis], axis=0).reset_index(drop=True)
+            print(sales_day_sales)
 
         return sales_day_sales
+    """ОБРАБОТКА ПРОДАЖ"""
     def selenium_day_Spisania(self):
-        for root, dirs, files in os.walk(PUT +"Данные 1с\\удалить\\" ):
+        for root, dirs, files in os.walk(PUT +"Данные 1с\\СПИСАНИЯ НОВЫЕ\\" ):
             for file in files:
                 os.path.basename(file)
                 file_path = os.path.join(root, file)
-                df = pd.read_csv(file_path, sep="\t", encoding="utf-8", skiprows=7,
-                                 names=("!МАГАЗИН!", "Номенклатура", "Дата/Время чека","операции", "сумма_списания", "сумма_списания_без_ндс"))
+                df = pd.read_csv(file_path, sep="\t", encoding="utf-8",skiprows=6,
+                                 names=("!МАГАЗИН!","операции","Причина списания","Дата/Время чека", "номенклатура_1с","единица","сумма_списания", "количество_писания", "количество_вес_списания"))
+                print(file)
                 RENAME().Rread(name_data = df, name_col= "!МАГАЗИН!", name = "Списания")
                 df = df.loc[df["!МАГАЗИН!"] != "Итого"]
                 df = df.loc[df["Дата/Время чека"] != "Итого"]
@@ -760,13 +747,24 @@ class OPEN:
                 df["!МАГАЗИН!"]= df["!МАГАЗИН!"].fillna("Не известно")
                 for w in l_mag:
                     df = df[~df["!МАГАЗИН!"].str.contains(w)]
+
+                 #"<Объект не найден>" и пустые удалить из столбца  причина
+
+                df["Дата/Время чека"] = df["Дата/Время чека"].str[:10]
+                df= df.drop_duplicates().reset_index(drop=True)
                 dates = df["Дата/Время чека"].unique()
-                for date in dates:
+
+                print(dates)
+                for dates in dates:
                     day_df = df[df["Дата/Время чека"] == date]
-                    file_name = os.path.join(PUT+ "Данные 1с\\Списания\\", date + ".txt")
+                    file_name = os.path.join(PUT+ "Данные 1с\\Списания\\", dates + ".txt")
                     day_df.to_csv(file_name, sep="\t", encoding="utf-8", decimal=".", index=False)
                     MEMORY().mem_total(x="Разбиение по дням: " + os.path.basename(file))
                 del df
+
+            gc.collect()
+        bot.BOT().bot_mes(mes="Дробление файла списания.....")
+    """РАЗДРОБЛЕНИЕ ФАЙЛА ПИСАНИЙ НА ДНИ"""
 
     def Day_fales(self):
 
@@ -1108,6 +1106,6 @@ class SPRAVKA:
 """Обработка справочника номенклатуры"""
 #SPRAVKA().Nomenckaltura_obrabotka()
 #RENAME().Nomenklatura_set()
-
+#OPEN().selenium_day_Spisania()
 OPEN().selenium_lEN()
 
