@@ -2,6 +2,8 @@ import os
 import psutil
 import pandas as pd
 import gc
+
+import xlsxwriter
 import numpy as np
 from datetime import datetime, timedelta, time,date
 from tqdm.auto import tqdm

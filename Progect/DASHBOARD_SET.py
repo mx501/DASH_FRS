@@ -21,7 +21,6 @@ from datetime import datetime, timedelta, time,date
 from pandas.tseries.offsets import MonthBegin
 import os
 import pandas as pd
-from tqdm.auto import tqdm
 import sys
 import math
 import gc
@@ -98,7 +97,7 @@ class RENAME:
         """replacements = pd.read_excel(PUT + "Справочники\\ДЛЯ ЗАМЕНЫ.xlsx",
                                      sheet_name="Лист1")"""
         rng = len(replacements)
-        for i in tqdm(range(rng), desc="Переименование - " + name, colour="#808080"): name_data[name_col] = \
+        for i in range(rng): name_data[name_col] = \
             name_data[name_col].replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
         return name_data
     """функция переименование"""
@@ -150,6 +149,7 @@ class DOC:
 class OPEN:
     def selenium_lEN(self):
         if Selenium_skachka == 1:
+
             # region СКАЧИВАНИЕ С САЙТА
             warnings.filterwarnings('ignore')  ##отключаем warnings
             ua = UserAgent()
@@ -168,7 +168,7 @@ class OPEN:
             pass_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[2]/div/input')
             pass_box.send_keys('JQJW64JqR')
             t.sleep(2)
-            print("Вход на сайт...")
+            bot.BOT().bot_mes(mes="Сохранен фаил чеков: SetCentrum")
             login_button = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/button/span[1]')
             login_button.click()
             t.sleep(15)
@@ -406,7 +406,6 @@ class OPEN:
             options = webdriver.ChromeOptions()
             options.add_argument("user_agent=" + ua.random)
             driver = webdriver.Chrome(chrome_options=options)
-
             url = 'http://10.32.2.51:8443/operday/checks'
             driver.get(url)
             t.sleep(5)
@@ -414,65 +413,98 @@ class OPEN:
             driver.maximize_window()
             t.sleep(2)
             id_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[1]/div/input')
+            t.sleep(1)
             id_box.send_keys('soldatovas')
             t.sleep(2)
             pass_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[2]/div/input')
+            t.sleep(1)
             pass_box.send_keys('JQJW64JqR')
             t.sleep(2)
             print("Вход на сайт...")
             login_button = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/button/span[1]')
+            t.sleep(1)
             login_button.click()
             t.sleep(15)
+
             def back(pole):
                 print("Возврат")
                 i = 0
                 while i < 12:
                     pole.send_keys(Keys.BACKSPACE)
                     i += 1
-            try:menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
-            except:print(menu.text)
-            finally:menu.click()
-            try: menu_op_day_cheks = WebDriverWait(driver, 15).until(
-                    EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]/span')))
-            except:d = "no"
+
+            try:
+                t.sleep(1)
+                menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
+            except:
+                t.sleep(1)
+                print(menu.text)
             finally:
+                t.sleep(1)
+                menu.click()
+            try:
+                t.sleep(1)
+                menu_op_day_cheks = WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]/span')))
+            except:
+                t.sleep(1)
+                d = "no"
+            finally:
+                t.sleep(1)
                 if d == "no":
                     print("но")
-                    try: menu_op_day = WebDriverWait(driver, 15).until(
+                    try:
+                        menu_op_day = WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[1]/span')))
                     finally:
                         t.sleep(2)
                         menu_op_day.click()
                         print("click operday")
-                    try: menu_op_day_cheks = WebDriverWait(driver, 15).until(
+                    try:
+                        menu_op_day_cheks = WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]')))
                     finally:
                         t.sleep(2)
                         menu_op_day_cheks.click()
                         print("m")
-                else: menu_op_day_cheks.click()
-            print("Ура")
+                else:
+                    t.sleep(1)
+                    menu_op_day_cheks.click()
+            print("Отправлен на скачивание.....")
             # region СПИСОК ДАТ
+            today = datetime.now()
+            yesterday = today - timedelta(days=1)
+            date_vchera = yesterday.strftime('%d.%m.%Y')
 
-            start_date = date(2023, 1, 1)  # начальная дата
-            end_date = date(2024, 1, 1)  # конечная дата
+            spisok_d =  [datetime.now().strftime('%d.%m.%Y')]
+            spisok_d.append(date_vchera)
+
+            spisok_d = ['23.04.2023', '24.04.2023','25.04.2023','26.04.2023']
+
+
+            start_date = date(2023, 3, 1)  # начальная дата
+            end_date = date(2024, 4, 26)  # конечная дата
             delta = timedelta(days=1)  # шаг даты
 
             dates_list = []
             while start_date < end_date:
-                 #преобразование даты в строку в формате 'день.месяц.год' и добавление её в список
+                # преобразование даты в строку в формате 'день.месяц.год' и добавление её в список
                 dates_list.append(start_date.strftime('%d.%m.%Y'))
                 start_date += delta
             spisok_d = dates_list
-            today= datetime.now().date()
-            spisok_d = ["25.04.2023"]
+
+
+
+
             for day in spisok_d:
-                new_day_1 =day + " 00:00"
-                new_day_2 =day + " 23:59"
-                print(new_day_1)
-                print(new_day_2)
+                bot.BOT().bot_mes(mes= "Скачивание файла :" + str(day))
+                new_day_1 = day + " 00:00"
+                t.sleep(1)
+                new_day_2 = day + " 23:59"
                 try:
-                    menu_data_n=WebDriverWait(driver,15).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[1]/div/div/div/input')))
+                    t.sleep(1)
+                    menu_data_n = WebDriverWait(driver, 15).until(EC.presence_of_element_located(
+                        (By.XPATH, '/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[1]/div/div/div/input')))
                 finally:
                     print("BACK")
                     back(menu_data_n)
@@ -481,19 +513,23 @@ class OPEN:
                     menu_data_n.send_keys(new_day_1)
                     print('sleep')
                 t.sleep(2)
-
                 try:
-                    menu_data_k=WebDriverWait(driver,15).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[2]/div/div/div/input')))
+                    t.sleep(1)
+                    menu_data_k = WebDriverWait(driver, 15).until(EC.presence_of_element_located(
+                        (By.XPATH, '/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[2]/div/div/div/input')))
                 finally:
-                   menu_data_k.clear()
-                   back(menu_data_k)
-                   t.sleep(2)
-                   print("вводим данные")
-                   menu_data_k.send_keys(new_day_2)
-                   print('sleep')
+                    t.sleep(1)
+                    menu_data_k.clear()
+                    t.sleep(1)
+                    back(menu_data_k)
+                    t.sleep(2)
+                    print("вводим данные")
+                    menu_data_k.send_keys(new_day_2)
+                    print('sleep')
                 t.sleep(2)
-
+                # endregion
                 try:
+                    t.sleep(1)
                     menu_primenit = WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/button[2]/span[1]')))
                 finally:
@@ -502,26 +538,28 @@ class OPEN:
                 t.sleep(2)
                 down = ""
                 try:
+                    t.sleep(2)
                     dowload = WebDriverWait(driver, 15).until(
-                        EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/div[1]/div/div/button/span[1]')))
+                        EC.presence_of_element_located(
+                            (By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/div[1]/div/div/button/span[1]')))
                 except:
                     down = "no"
                 finally:
                     if down == "no":
                         print("нет кнопки")
-
-
                     else:
+                        t.sleep(1)
                         dowload.click()
 
                     try:
                         dowload_all = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/ul/li[2]')))
                     finally:
+                        t.sleep(1)
                         dowload_all.click()
                         t.sleep(10)
                         x = ""
-
                     try:
+                        t.sleep(1)
                         dowload_yes = WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div/div[3]/button[2]/span[1]')))
                     except:
@@ -532,120 +570,123 @@ class OPEN:
                         else:
                             t.sleep(3)
                             dowload_yes.click()
+                            t.sleep(1)
 
-                #   endregion
-        if Selenium_skachka == 1:
-            driver.close()
-            driver.quit()
+                if Selenium == 1:
+                    folder_path = r"C:\Users\lebedevvv\Downloads"  # путь до папки, которую необходимо мониторить
+                    partial_name = "PurchasePositions"  # подстрока, которую необходимо найти
+                    found_file = False
+                    bot.BOT().bot_mes(mes="Ожидание файла....")
+                    while not found_file:
+                        for filename in os.listdir(folder_path):
+                            if partial_name in filename and filename.endswith(".xlsx"):
+                                # найден файл, удовлетворяющий условиям
+                                print(f"Найден файл: {filename}")
+                                found_file = True
+                                bot.BOT().bot_mes(mes="Фаил найден....")
 
-        if Selenium == 1:
-            folder_path = r"C:\Users\lebedevvv\Downloads"  # путь до папки, которую необходимо мониторить
-            partial_name = "PurchasePositions"  # подстрока, которую необходимо найти
-            found_file = False
+                            # Проверьте, был ли найден файл. Если нет, подождите несколько секунд и повторите попытку
+                            if not found_file:
+                                print(f"Файл {partial_name} не найден. Ожидание...")
+                                t.sleep(5)  # задержка в 5 секунд перед следующей попыткой поиска файла
+                    t.sleep(60)
+                    path_download = r"C:\Users\lebedevvv\Downloads"
 
-            while not found_file:
-                for filename in os.listdir(folder_path):
-                    if partial_name in filename and filename.endswith(".xlsx"):
-                        # найден файл, удовлетворяющий условиям
-                        print(f"Найден файл: {filename}")
-                        found_file = True
+                    print("Загрузка списка маазинов....")
+                    spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
+                    spqr = spqr[['ID', '!МАГАЗИН!']]
+                    files = os.listdir(path_download)
+                    print(files, " и ", path_download)
+                    for f in files:
+                        d = len(f)
+                        file_name = f[0:17]
+                        file = path_download + "\\" + f
+                        if str(file_name) == "PurchasePositions":
+                            df = pd.read_excel(file, skiprows=1)
+                            MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file))
 
-                # Проверьте, был ли найден файл. Если нет, подождите несколько секунд и повторите попытку
-                if not found_file:
-                    print(f"Файл {partial_name} не найден. Ожидание...")
-                    t.sleep(5)  # задержка в 5 секунд перед следующей попыткой поиска файла
-        else:
-            t.sleep(180)
-        t.sleep(5)
-        ##            driver.close()
-        ##            driver.switch_to.window(driver.window_handles[0])
+                            d = df['Дата/Время чека'][1]
+                            new_filename = d[0:10] + ".xlsx"
+                            df = df.rename(columns={"Магазин": 'ID'})
+                            table = df.merge(spqr[['!МАГАЗИН!', 'ID']], on='ID', how="left")
+                            del df
+                            table = table.loc[table["Тип"].notnull()]
+                            table['!МАГАЗИН!'] = table['!МАГАЗИН!'].astype("str")
+                            table['Наименование товара'] = table['Наименование товара'].fillna("неизвестно").astype("str")
 
-        path_download = r"C:\Users\lebedevvv\Downloads"
+                            # ######################################################################################### Загузка названий с 1 с
+                            spravka_nom = pd.read_csv(PUT + "\\Справочники\\Справочник номенклатуры\\1.txt", sep="\t", skiprows=1, encoding="utf-8",
+                                                      names=('номенклатура_1с', "cрок_годности", "группа", "подгруппа", "Штрихкод",))
+                            spravka_dop = pd.read_excel(PUT + "\\Справочники\\Справочник номенклатуры\\Коректировка штрих кодов.xlsx")
+                            spravka_nom['номенклатура_1с'] = spravka_nom['номенклатура_1с'].fillna("неизвестно").astype("str")
+                            table["Штрихкод"] = table["Штрихкод"].astype("str").str.replace(".0", "")
+                            spravka_nom["Штрихкод"] = spravka_nom["Штрихкод"].astype("str").str.replace(".0", "")
+                            spravka_nom["штрихкод_1c"] = spravka_nom["Штрихкод"]
+                            table = table.merge(spravka_nom[['номенклатура_1с', "Штрихкод"]],
+                                                on=["Штрихкод"], how="left").reset_index(drop=True)
+                            # ############################################################################################
+                            sales_day = table.copy()
+                            # удаление микромаркетов
+                            l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
+                            for w in l_mag:
+                                sales_day = sales_day[~sales_day["!МАГАЗИН!"].str.contains(w)].reset_index(drop=True)
 
-        print("Загрузка списка маазинов....")
-        spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
-        spqr = spqr[['ID', '!МАГАЗИН!']]
-        files = os.listdir(path_download)
-        print(files, " и ", path_download)
-        for f in files:
-            d = len(f)
-            file_name = f[0:17]
-            file = path_download + "\\" + f
-            if str(file_name) == "PurchasePositions":
-                df = pd.read_excel(file, skiprows=1)
-                MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file))
+                            # удаление подарочных карт
+                            PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
+                                       "подарочная карта КМ 500 НОВАЯ",
+                                       "подарочная карта КМ 1000 НОВАЯ")
+                            for x in PODAROK:
+                                sales_day = sales_day[~sales_day['Наименование товара'].str.contains(x)]
+                            sales_day.to_excel(PUT + "Selenium_set_data\\Tекущий день\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен фаил общих продаж: " + str(new_filename))
+                            # обработка файла чеков
+                            sales_day_cehk = OPEN().selenium_day_chek(name_datafreme=sales_day, name_file=str(new_filename))
+                            # сохранение Сгрупированного файла чеков
 
-                d = df['Дата/Время чека'][1]
-                new_filename = d[0:10] + ".xlsx"
-                df = df.rename(columns={"Магазин": 'ID'})
-                table = df.merge(spqr[['!МАГАЗИН!','ID']], on='ID', how="left")
-                del df
-                table = table.loc[table["Тип"].notnull()]
-                table['!МАГАЗИН!'] = table['!МАГАЗИН!'].astype("str")
-                table['Наименование товара'] = table['Наименование товара'].fillna("неизвестно").astype("str")
+                            sales_day_cehk.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Чеки\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename))
 
-                # ######################################################################################### Загузка названий с 1 с
-                spravka_nom = pd.read_csv(PUT + "\\Справочники\\Справочник номенклатуры\\1.txt", sep="\t", skiprows=1, encoding="utf-8",
-                                          names=('номенклатура_1с', "cрок_годности", "группа", "подгруппа","Штрихкод",))
-                spravka_dop = pd.read_excel(PUT + "\\Справочники\\Справочник номенклатуры\\Коректировка штрих кодов.xlsx")
-                spravka_nom['номенклатура_1с'] = spravka_nom['номенклатура_1с'].fillna("неизвестно").astype("str")
-                table["Штрихкод"] = table["Штрихкод"].astype("str").str.replace(".0", "")
-                spravka_nom["Штрихкод"] = spravka_nom["Штрихкод"].astype("str").str.replace(".0", "")
-                spravka_nom["штрихкод_1c"] = spravka_nom["Штрихкод"]
-                table = table.merge(spravka_nom[['номенклатура_1с', "Штрихкод"]],
-                                            on=["Штрихкод"], how="left").reset_index(drop=True)
-                # ############################################################################################
-                sales_day = table.copy()
-                # удаление микромаркетов
-                l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
-                for w in l_mag:
-                    sales_day = sales_day[~sales_day["!МАГАЗИН!"].str.contains(w)].reset_index(drop=True)
+                            # сохранение Сгрупированного файла продаж;
+                            sales_day_sales = OPEN().selenium_day_sales(name_datafreme=sales_day, name_file=str(new_filename))
+                            sales_day_sales.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename[:-5]))
 
-                # удаление подарочных карт
-                PODAROK = ("Подарочная карта КМ 500р+ конверт", "Подарочная карта КМ 1000р+ конверт",
-                           "подарочная карта КМ 500 НОВАЯ",
-                           "подарочная карта КМ 1000 НОВАЯ")
-                for x in PODAROK:
-                    sales_day = sales_day[~sales_day['Наименование товара'].str.contains(x)]
-                sales_day.to_excel(PUT + "Selenium_set_data\\Tекущий день\\" + new_filename, index=False)
-                bot.BOT().bot_mes(mes="Сохранен фаил общих продаж: " + str(new_filename))
-                # обработка файла чеков
-                sales_day_cehk = OPEN().selenium_day_chek(name_datafreme = sales_day, name_file= str(new_filename))
-                # сохранение Сгрупированного файла чеков
-                sales_day_cehk.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Чеки\\" + new_filename, index=False)
-                bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename))
+                            del sales_day_cehk
+                            del sales_day
+                            gc.collect()
+                            # region СОХРАНЕНИЕ УДАЛЕННЫХ ДАННЫХ
+                            # Сохранение отдельно вейдинги и микромаркеты
+                            mask_VEN = table["!МАГАЗИН!"].str.contains("|".join(l_mag))
+                            sales_day_VEN = table[mask_VEN]
+                            sales_day_VEN.to_excel(PUT + "Selenium_set_data\\Вейдинги и микромаркет\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен Вейдинг: " + str(new_filename[:-5]))
+                            del sales_day_VEN
+                            gc.collect()
 
-                # сохранение Сгрупированного файла продаж;
-                sales_day_sales = OPEN().selenium_day_sales(name_datafreme=sales_day, name_file=str(new_filename))
+                            # Сохранение отдельно подарочные карты
+                            mask_Podarok = table['Наименование товара'].str.contains("|".join(PODAROK))
+                            sales_day_Podarok = table[mask_Podarok]
 
+                            sales_day_Podarok.to_excel(PUT + "Selenium_set_data\\Подарочные карты\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен Подарочные карты: " + str(new_filename[:-5]))
+                            del sales_day_Podarok
+                            gc.collect()
 
+                            # Сохранение отдельно анулированные и возвращенные чеки
+                            sales_null = table.loc[(table["Тип"] == "Отмена") | (table["Тип"] == "Возврат")]
+                            sales_null.to_excel(PUT + "Selenium_set_data\\Анулированные и возврат чеки\\" + new_filename, index=False)
+                            if geo =="w":
+                                sales_null.to_excel("P:\\Общие\\ЭБД\\Франшиза\\" + new_filename, index=False)
+                            bot.BOT().bot_mes(mes="Сохранен Возвраты: " + str(new_filename[:-5]))
+                            del sales_null
+                            gc.collect()
+                            #bot.BOT_raschet().BOT()
 
-
-                sales_day_sales.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + new_filename, index=False)
-                bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename[:-5]))
-
-                del sales_day_cehk
-                del sales_day
-                gc.collect()
-                #region СОХРАНЕНИЕ УДАЛЕННЫХ ДАННЫХ
-                # Сохранение отдельно вейдинги и микромаркеты
-                mask_VEN = table["!МАГАЗИН!"].str.contains("|".join(l_mag))
-                sales_day_VEN = table[mask_VEN]
-                sales_day_VEN.to_excel(PUT + "Selenium_set_data\\Вейдинги и микромаркет\\" + new_filename, index=False)
-                del sales_day_VEN
-                gc.collect()
-
-                # Сохранение отдельно подарочные карты
-                mask_Podarok = table['Наименование товара'].str.contains("|".join(PODAROK))
-                sales_day_Podarok = table[mask_Podarok]
-
-                sales_day_Podarok.to_excel(PUT + "Selenium_set_data\\Подарочные карты\\" + new_filename, index=False)
-                del sales_day_Podarok
-                gc.collect()
-                # endregion
-
-
-                os.remove(file)
+                            # endregion
+                            os.remove(file)
+            if Selenium_skachka == 1:
+                driver.close()
+                driver.quit()
     """Получение данных с сетретейла ОБНОВЛЕНИЕ ПОСЛЕДНЕГО ДНЯ"""
     def selenium_day_chek(self, name_datafreme, name_file):
         MEMORY().mem_total(x="Формирование чеков: ")
@@ -695,14 +736,17 @@ class OPEN:
 
         # округление
         sales_day_cehk= sales_day_cehk.round(2)
-        sales_day_cehk['дата'] = pd.to_datetime(sales_day_cehk['дата'], format='%Y-%m-%d')
+        sales_day_cehk['filename'] = os.path.basename(name_file)[:-5]
+        sales_day_cehk = sales_day_cehk.drop(['дата'], axis=1)
+        sales_day_cehk = sales_day_cehk.rename(columns={'filename': 'дата'})
+        sales_day_cehk["дата"] = pd.to_datetime(sales_day_cehk["дата"], format='%d.%m.%Y')
+
         MEMORY().mem_total(x="Обработан - Фаил чеков: " + str(name_file))
 
         return sales_day_cehk
     """ОБРАБОТКА ЧЕКОВ"""
     def selenium_day_sales(self, name_datafreme, name_file):
         bot.BOT().bot_mes(mes="Создание файла продаж... ")
-        OPEN().selenium_day_Spisania()
         sales_day_sales = name_datafreme[["Дата/Время чека","ID","!МАГАЗИН!","Тип","Наименование товара","номенклатура_1с","Количество","Стоимость позиции","Сумма скидки"]]
         sales_day_sales = sales_day_sales.loc[sales_day_sales["Тип"] == "Продажа"]
         sales_day_sales = sales_day_sales.drop(["Тип"], axis=1)
@@ -717,6 +761,13 @@ class OPEN:
             .sort_values("!МАГАЗИН!", ascending=False).reset_index(drop=True)
         print(sales_day_sales)
 
+        sales_day_sales['filename'] = os.path.basename(name_file)[:-5]
+        sales_day_sales = sales_day_sales.drop(["Дата/Время чека"], axis=1)
+        sales_day_sales = sales_day_sales.rename(columns={'filename': "Дата/Время чека"})
+        sales_day_sales["Дата/Время чека"] = pd.to_datetime(sales_day_sales["Дата/Время чека"], format='%d.%m.%Y')
+
+
+
         # Доавление списания
         OPEN().selenium_day_Spisania()
         file_spis = PUT + "Данные 1с\\Списания\\" + name_file[:-5] + ".txt"
@@ -725,45 +776,61 @@ class OPEN:
                                     names=("!МАГАЗИН!","операции","Причина списания","Дата/Время чека", "номенклатура_1с","единица_списания","сумма_списания", "количество_писания", "количество_вес_списания"))
             print(spis)
             print(sales_day_sales)
-            spis["Дата/Время чека"] = spis["Дата/Время чека"].astype("datetime64[ns]")
             bot.BOT().bot_mes(mes="Найден фаил списаний...")
+            spis['filename'] = os.path.basename(name_file)[:-5]
+            spis = spis.drop(["Дата/Время чека"], axis=1)
+            spis = spis.rename(columns={'filename': "Дата/Время чека"})
+            spis["Дата/Время чека"] = pd.to_datetime(spis["Дата/Время чека"], format='%d.%m.%Y')
+
+
             sales_day_sales = pd.concat([sales_day_sales, spis], axis=0).reset_index(drop=True)
             print(sales_day_sales)
+
 
         return sales_day_sales
     """ОБРАБОТКА ПРОДАЖ"""
     def selenium_day_Spisania(self):
-        for root, dirs, files in os.walk(PUT +"Данные 1с\\СПИСАНИЯ НОВЫЕ\\" ):
+        for root, dirs, files in os.walk(PUT + "Данные 1с\\СПИСАНИЯ НОВЫЕ\\"):
             for file in files:
                 os.path.basename(file)
                 file_path = os.path.join(root, file)
-                df = pd.read_csv(file_path, sep="\t", encoding="utf-8",skiprows=6,
-                                 names=("!МАГАЗИН!","операции","Причина списания","Дата/Время чека", "номенклатура_1с","единица","сумма_списания", "количество_писания", "количество_вес_списания"))
-                print(file)
-                RENAME().Rread(name_data = df, name_col= "!МАГАЗИН!", name = "Списания")
+                print(file_path)
+                df = pd.read_csv(file_path, sep="\t", encoding='utf-8', skiprows=7, parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y",
+                                 names=("!МАГАЗИН!","номенклатура_1с", "Дата/Время чека","операции", "сумма_списания", "сумма_списания_НДС"))
+                print( df)
+                RENAME().Rread(name_data=df, name_col="!МАГАЗИН!", name="Списания")
                 df = df.loc[df["!МАГАЗИН!"] != "Итого"]
                 df = df.loc[df["Дата/Время чека"] != "Итого"]
                 l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
-                df["!МАГАЗИН!"]= df["!МАГАЗИН!"].fillna("Не известно")
+                df["!МАГАЗИН!"] = df["!МАГАЗИН!"].fillna("Не известно")
                 for w in l_mag:
                     df = df[~df["!МАГАЗИН!"].str.contains(w)]
 
-                 #"<Объект не найден>" и пустые удалить из столбца  причина
+                # "<Объект не найден>" и пустые удалить из столбца причина
 
-                df["Дата/Время чека"] = df["Дата/Время чека"].str[:10]
-                df= df.drop_duplicates().reset_index(drop=True)
+                #df["Дата/Время чека"] = df["Дата/Время чека"].str[:10]
+
                 dates = df["Дата/Время чека"].unique()
+                date_str = dates.strftime("%d.%m.%Y")
 
-                print(dates)
-                for dates in dates:
-                    day_df = df[df["Дата/Время чека"] == date]
-                    file_name = os.path.join(PUT+ "Данные 1с\\Списания\\", dates + ".txt")
+                print(df)
+
+                #df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format='%d.%m.%Y')
+
+                for date in date_str :
+                    print(date)
+                    df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format="%d.%m.%Y")
+                    day_df = df.loc[df["Дата/Время чека"] == pd.to_datetime(date, format="%d.%m.%Y")]
+                    print(df)
+                    file_name = os.path.join(PUT + "Данные 1с\\Списания\\", date + ".txt")
                     day_df.to_csv(file_name, sep="\t", encoding="utf-8", decimal=".", index=False)
                     MEMORY().mem_total(x="Разбиение по дням: " + os.path.basename(file))
-                del df
+                #os.remove(PUT + "Данные 1с\\СПИСАНИЯ НОВЫЕ\\" +file)
 
             gc.collect()
         bot.BOT().bot_mes(mes="Дробление файла списания.....")
+        return
+
     """РАЗДРОБЛЕНИЕ ФАЙЛА ПИСАНИЙ НА ДНИ"""
 
     def Day_fales(self):
@@ -923,7 +990,7 @@ class SET_RETEIL:
 
             rng_ = len(set_rename)
             print(rng_)
-            for i in tqdm(range(rng_), desc="Переименование - номенклатуры", colour="#808080"):
+            for i in range(rng_):
                 print(set_rename["номенклатура"][i])
                 set_sales["номенклатура"] = \
                 set_sales["номенклатура"].replace(set_rename["номенклатура"][i], set_rename["номенклатура_1с"][i], regex=False)
@@ -1106,6 +1173,7 @@ class SPRAVKA:
 """Обработка справочника номенклатуры"""
 #SPRAVKA().Nomenckaltura_obrabotka()
 #RENAME().Nomenklatura_set()
-#OPEN().selenium_day_Spisania()
-OPEN().selenium_lEN()
+OPEN().selenium_day_Spisania()
+OPEN().selenium_day()
+gc.collect()
 

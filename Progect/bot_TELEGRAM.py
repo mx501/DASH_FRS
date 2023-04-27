@@ -1,14 +1,20 @@
-import logging
-import time
-from datetime import datetime, timedelta
-from io import BytesIO
+import psutil
+import shutil
+import xlsxwriter
+from pandas.tseries.offsets import DateOffset
+from datetime import datetime, timedelta, time,date
+from pandas.tseries.offsets import MonthBegin
 import os
 import pandas as pd
-from tqdm.auto import tqdm
-import openai
+import sys
+import math
 import gc
 import requests
-import telegram
+# from memory_profiler import profile
+import numpy as np
+import calendar
+import bot_TELEGRAM as bot
+import winsound
 
 
 pd.set_option("expand_frame_repr", False)
@@ -30,22 +36,44 @@ TY_GROP ="n"
 # пересчитать данные
 DATA = "n"
 
-# region расположение данных home или work
 geo = "w"
+# region расположение данных home или work
+
 if geo == "h":
     # основной каталог расположение данных дашборда
-    PUT = "D:\\Python\\Dashboard\\"
+    PUT = "D:\\Python\\DASHBRD_SET\\"
     # путь до файлов с данными о продажах
     PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\Текущий год\\"
-    PUT_BOT = PUT + "ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\"
+    """Путь до не разбитых файлов"""
+    PUT_SEBES = "D:\\Python\\DASHBRD_SET\\Источники\\Себестоемость\\Исходные\\"
+    """Путь до разбитых файлов по дням"""
+    PUT_SEBES_day = "D:\\Python\\DASHBRD_SET\\Источники\\Себестоемость\\Архив\\"
+    """Путь до источника"""
+    PUT_SET = "D:\\Python\\DASHBRD_SET\\Источники\\паблик\\"
+    """путь переноса файла"""
+    PUT_SET_copy = "D:\\Python\\DASHBRD_SET\\Источники\\Чеки_сет\\Текущий день\\"
+    """сохранение файла продаж"""
+    PUT_SET_sales = "D:\\Python\\DASHBRD_SET\\Продаж_Set\\Текущий день\\"
+    """сохранение файла чеков"""
+    PUT_SET_chek = "D:\\Python\\DASHBRD_SET\\ЧЕКИ_set\\Текущий день\\"
 else:
-    # основной каталог расположение данных дашборда
-    PUT = "C:\\Users\\lebedevvv\\Desktop\\Dashboard\\"
+    PUT = "C:\\Users\\lebedevvv\\Desktop\\DASHBRD_SET\\"
     # путь до файлов с данными о продажах
-    PUT_PROD = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\Текущий год\\"
-    PUT_CHEK = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\ЧЕКИ\\2023\\"
-    PUT_BOT = "C:\\Users\\lebedevvv\\Desktop\\Показатели ФРС\\Продажи, Списания, Прибыль\\"
+    PUT_PROD = PUT + "ПУТЬ ДО ФАЙЛОВ С ПРОДАЖАМИ\\Текущий год\\"
+    """Путь до не разбитых файлов"""
+    PUT_SEBES = "C:\\Users\\lebedevvv\\Desktop\\DASHBRD_SET\\Источники\\Себестоемость\\Исходные\\"
+    """Путь до разбитых файлов по дням"""
+    PUT_SEBES_day = "C:\\Users\\lebedevvv\\Desktop\\DASHBRD_SET\\Источники\\Себестоемость\\Архив\\"
+    """Путь до источника"""
+    PUT_SET = "P:\\Фирменная розница\\ФРС\\Данные из 1 С\\Чеки Set\\"
+    """путь переноса файла"""
+    PUT_SET_copy = "C:\\Users\\lebedevvv\\Desktop\\DASHBRD_SET\\Источники\\Чеки_сет\\Текущий день\\"
+    """сохранение файла продаж"""
+    PUT_SET_sales = "C:\\Users\\lebedevvv\\Desktop\\DASHBRD_SET\\Продаж_Set\\Текущий день\\"
+    """сохранение файла чеков"""
+    PUT_SET_chek = "C:\\Users\\lebedevvv\\Desktop\\DASHBRD_SET\\ЧЕКИ_set\\Текущий день\\"
 # endregion
+
 class MEMORY:
     def mem(self, x, text):
         total_memory_usage = x.memory_usage(deep=True).sum()
@@ -126,10 +154,11 @@ class OPENAI:
 class BOT:
     def bot_mes(self, mes):
         # получение ключей
-        dat = pd.read_excel(PUT + 'TEMP\\id.xlsx')
+        dat = pd.read_excel(PUT + 'Bot\\key\\id.xlsx')
         keys_dict = dict(zip(dat.iloc[:, 0], dat.iloc[:, 1]))
         token = keys_dict.get('token')
         test = keys_dict.get('test')
+        TY_id = keys_dict.get('TY_id')
         #analitik = keys_dict.get('analitik')
         #BOT_RUK_FRS = keys_dict.get('BOT_RUK_FRS')
         # TEST ####################################################
@@ -143,8 +172,17 @@ class BOT:
             print('Отправлено Test')
         else:
             print(f'Ошибка при отправке Test: {response.status_code}')
-
-
+        if TY_GROP == "y":
+            url = f'https://api.telegram.org/bot{token}/sendMessage'
+            # Параметры запроса для отправки сообщения
+            params_ty = {'chat_id': TY_id, 'text': mes }
+            # Отправка запроса на сервер Telegram для отправки сообщения
+            response_ty = requests.post(url, data=params_ty)
+            # Проверка ответа от сервера Telegram
+            if response_ty.status_code == 200:
+                print('Сообщение успешно Руководители!')
+            else:
+                print(f'Ошибка при отправке Группа руководители: {response_ty.status_code}')
     """отправка сообщений"""
     def bot_raschet(self):
         if DATA=="y":
@@ -277,9 +315,7 @@ class BOT:
             df_day_sales = '{:,.0f}'.format(df_day_sales_f).replace(',', ' ')
             """Списания показатель"""
             # Списания за прошлый день
-            df_day_sp_f = df.loc[(df["Менеджер"] == i) &
-                                 filter_date_day &
-                                 (df["операции списания"] != "Хозяйственные товары")]["СписРуб"].sum()
+            df_day_sp_f = df.loc[(df["Менеджер"] == i) &filter_date_day & (df["операции списания"] != "Хозяйственные товары")]["СписРуб"].sum()
             df_day_sp = '{:,.0f}'.format(df_day_sp_f).replace(',', ' ')
             # % Списания за прошлый день
             df_day_prosent_f =  df_day_sp_f /  df_day_sales_f
@@ -667,8 +703,380 @@ class BOT:
         BOT().bot_mes(mes=MAG_CUNT)
         return mes_bot
     """ежедневное инфо"""
-"""Бот телеграм"""
+class RENAME:
+    def Rread(self, name_data, name_col, name):
+        print("Загрузка справочника магазинов...")
+        replacements = pd.read_excel("https://docs.google.com/spreadsheets/d/1SfuC2zKUFt6PQOYhB8EEivRjy4Dz-o4WDL-IR7CT3Eg/export?exportFormat=xlsx")
+        """replacements = pd.read_excel(PUT + "Справочники\\ДЛЯ ЗАМЕНЫ.xlsx",
+                                     sheet_name="Лист1")"""
+        rng = len(replacements)
+        for i in range(rng): name_data[name_col] = \
+            name_data[name_col].replace(replacements["НАЙТИ"][i], replacements["ЗАМЕНИТЬ"][i], regex=False)
+        return name_data
+    """функция переименование"""
+    def TY(self):
+        # загрузка файла справочника териториалов
+        ty = pd.read_excel("https://docs.google.com/spreadsheets/d/1rwsBEeK_dLdpJOAXanwtspRF21Z3kWDvruani53JpRY/export?exportFormat=xlsx")
 
+        ty = ty[["Название 1 С (для фин реза)", "Менеджер"]]
+        RENAME().Rread(name_data = ty, name_col= "Название 1 С (для фин реза)", name="TY")
+        ty = ty.rename(columns={"Название 1 С (для фин реза)": 'магазин'})
+        return ty
+
+    def TY_Spravochnik(self):
+        ty = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
+        ty = ty[["!МАГАЗИН!","Менеджер"]]
+        return ty
+class MEMORY:
+    def mem(self, x, text):
+        total_memory_usage = x.memory_usage(deep=True).sum()
+        print(text + " - Использовано памяти: {:.2f} MB".format(total_memory_usage / 1e6))
+    """использование памяти датафрейм"""
+    def mem_total(self,x):
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        total_memory_usage = memory_info.rss
+        print(x +" - Использование памяти: {:.2f} MB".format(total_memory_usage / 1024 / 1024))
+    """использование памяти программой полная"""
+"""Бот телеграм"""
+class FLOAT:
+    def float_colms(self, name_data, name_col , name):
+        for i in name_col:
+            print("Форматирование столбцов в формат FLOAT: " + name + ": " + i )
+            name_data[i] = (name_data[i].astype(str)
+                                              .str.replace("\xa0", "")
+                                              .str.replace(",", ".")
+                                              .fillna("0")
+                                              .astype("float")
+                                              .round(2))
+        return name_data
+    """Для нескольких столбцов"""
+    def float_colm(self, name_data, name_col , name):
+        print("Форматирование столбцов в формат FLOAT: " + name + ": " + name_col  )
+        name_data[name_col ] = (name_data[name_col ].astype(str)
+                                          .str.replace("\xa0", "")
+                                          .str.replace(",", ".")
+                                          .fillna("0")
+                                          .astype("float")
+                                          .round(2))
+        return name_data
+    """для одного столбца"""
+class BOT_raschet:
+    def BOT(self):
+        #########################Товар дня
+        TOVAR_DEY = pd.read_excel("https://docs.google.com/spreadsheets/d/1oDZQWMkKWHP4SBjZD4GYRWjZYeH1AUjRvH2z1Ik3T1g/export?exportFormat=xlsx",)
+        keys_dict = dict(zip(TOVAR_DEY.iloc[:, 0], TOVAR_DEY.iloc[:, 1]))
+        N1 = keys_dict.get('n1')
+        print(N1)
+        t2 = keys_dict.get('test')
+
+
+        ##########################
+        # region ПОИСК МАКСИМАЛЬНОЙ ДАТЫ
+        max_date = datetime.min  # установим начальное значение для максимальной даты
+
+        for filename in os.listdir(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\"):
+                try:
+                    file_date = datetime.strptime(filename[:-5], '%d.%m.%Y')  # извлекаем дату из названия файла
+                    if file_date > max_date:
+                        max_date = file_date  # обновляем максимальную дату, если нужно
+                except ValueError:
+                    pass  # если формат даты некорректный, игнорируем файл
+        # дата максимальная в формате названия файла
+        date_obj = datetime.strptime(str(max_date), '%Y-%m-%d %H:%M:%S')
+        file_max_date = date_obj.strftime('%d.%m.%Y')
+        # endregion
+        # максимальный год
+        max_year = max_date.year
+        # максимальный месяц
+        max_mounth = max_date.month
+        # максимальный день
+        max_day = max_date.day
+
+        Bot = pd.DataFrame()
+        # region СЕГОДНЯШНЯЯ ДАТА
+        TODEY_date_file = pd.to_datetime(file_max_date, format='%d.%m.%Y').strftime('%d.%m.%Y')
+        BOT().bot_mes(mes="СЕГОДНЯШНЯЯ ДАТА:\n " + str(TODEY_date_file))
+        TODEY = pd.read_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + str(TODEY_date_file) + '.xlsx', parse_dates=["Дата/Время чека"],
+                           date_format='%Y-%m-%d %H:%M:%S')
+
+        if "операции" not in TODEY.columns:
+            TODEY["операции"] = 0
+        if "Причина списания" not in TODEY.columns:
+            TODEY["Причина списания"] = 0
+        if "сумма_списания" not in TODEY.columns:
+            TODEY["сумма_списания"] = 0
+        TODEY["Фильтр время"] = "сегодня"
+        TODEY["Месяц"] = TODEY["Дата/Время чека"].dt.month
+        TODEY["Год"] = TODEY["Дата/Время чека"].dt.year
+        TODEY["День"] = TODEY["Дата/Время чека"].dt.day
+        TODEY = TODEY[["Дата/Время чека","!МАГАЗИН!", "Стоимость позиции",'номенклатура_1с', "Сумма скидки","операции","сумма_списания","Месяц","Год","День"]]
+        TODEY["Фильтр время"] = "сегодня"
+        # роисаоение форматов
+        ln = ("Стоимость позиции",  "Сумма скидки","сумма_списания")
+        FLOAT().float_colms(name_data=TODEY, name_col=ln, name="Текущий")
+        TODEY.loc[TODEY["Стоимость позиции"]>0,"операции" ] = "Выручка"
+        TODEY.loc[TODEY["Сумма скидки"] > 0, "операции"] = "Скидка"
+
+        # группировка
+        TODEY = TODEY.melt(
+                id_vars=["Фильтр время","Дата/Время чека", "!МАГАЗИН!" ,"операции",'номенклатура_1с',"Месяц","Год","День"],
+                var_name="Статья",
+                value_name="значение").reset_index(
+            drop=True)
+        TODEY = TODEY.groupby(["Фильтр время","Дата/Время чека", "!МАГАЗИН!" , "операции",'номенклатура_1с',"Месяц","Год","День" ], as_index=False).agg({
+            "значение": "sum"}).reset_index(
+            drop=True)
+        MEMORY().mem_total(x="СЕГОДНЯШНЯЯ ДАТА")
+        Bot = pd.concat([Bot, TODEY ], axis=0, ).reset_index(drop=True)
+        del  TODEY
+        gc.collect()
+        MEMORY().mem_total(x="1")
+        # endregion
+
+        # region вЧЕРАШНЯЯ ДАТА
+        TODEY_Last = pd.to_datetime(file_max_date, format='%d.%m.%Y') - pd.offsets.Day(1)
+        TODEY_Last = TODEY_Last.strftime('%d.%m.%Y')
+        BOT().bot_mes(mes="ВЧЕРАШНЯЯ ДАТА:\n " + str(TODEY_Last))
+        TODEY_Last = pd.read_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + str(TODEY_Last) + '.xlsx', parse_dates=["Дата/Время чека"],
+                              date_format='%Y-%m-%d %H:%M:%S')
+        print("1111\n", TODEY_Last)
+        TODEY_Last = TODEY_Last[["!МАГАЗИН!","Дата/Время чека", "Стоимость позиции",'номенклатура_1с', "Сумма скидки","операции","сумма_списания"]]
+        TODEY_Last["Фильтр время"] = "ВЧЕРАШНЯЯ ДАТА"
+        TODEY_Last["Месяц"] = TODEY_Last["Дата/Время чека"].dt.month
+        TODEY_Last["Год"] = TODEY_Last["Дата/Время чека"].dt.year
+        TODEY_Last["День"] = TODEY_Last["Дата/Время чека"].dt.day
+        # роисаоение форматов
+        ln = ("Стоимость позиции", "сумма_списания", "Сумма скидки")
+        FLOAT().float_colms(name_data=TODEY_Last, name_col=ln, name="Текущий")
+        TODEY_Last.loc[TODEY_Last["Стоимость позиции"] > 0, "операции"] = "Выручка"
+        TODEY_Last.loc[TODEY_Last["Сумма скидки"] > 0, "операции"] = "Скидка"
+        # группировка
+        TODEY_Last = TODEY_Last.melt(
+            id_vars=["Фильтр время","Дата/Время чека", "!МАГАЗИН!", "операции",'номенклатура_1с',"Месяц","Год","День"],
+            var_name="Статья",
+            value_name="значение").reset_index(
+            drop=True)
+        TODEY_Last = TODEY_Last.groupby(["Фильтр время", "Дата/Время чека","!МАГАЗИН!", "операции",'номенклатура_1с',"Месяц","Год","День" ], as_index=False).agg({
+            "значение": "sum"}).reset_index(
+            drop=True)
+        print("111sssss1\n", TODEY_Last)
+        MEMORY().mem_total(x="вЧЕРАШНЯЯ ДАТА")
+        # ###############################################################################################################################################
+        Bot = pd.concat([Bot, TODEY_Last], axis=0, ).reset_index(drop=True)
+        del TODEY_Last
+        gc.collect()
+        MEMORY().mem_total(x="1")
+        # endregion
+
+
+        # region ТЕКУШИЙ МЕСЯЦ
+        # строку в объект datetime
+        file_max_date_ln = pd.to_datetime(file_max_date, format='%d.%m.%Y')
+        file_max_date_ln = file_max_date_ln - pd.offsets.Day(1)
+        # Определяем первый день текущего месяца
+        first_day_of_month = file_max_date_ln.replace(day=1)
+        # список дат
+        dates_of_last_month = pd.date_range(start=first_day_of_month , end=file_max_date_ln, freq='D').strftime('%d.%m.%Y').tolist()
+        # Фильтруем даты по условию "меньше file_max_date"
+        ln_mount_tec = [date for date in dates_of_last_month if pd.to_datetime(date, format='%d.%m.%Y')]
+
+        BOT().bot_mes(mes="ТЕКУШИЙ МЕСЯЦ:\n " + "Мин: " + str(first_day_of_month) + "\nМин: " + str(file_max_date_ln))
+
+        Bot_tudey = pd.DataFrame()
+        for file in ln_mount_tec:
+            df = pd.read_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + file + '.xlsx', parse_dates=["Дата/Время чека"],
+                               date_format='%Y-%m-%d %H:%M:%S')
+            print(Bot_tudey)
+            df = df[["Дата/Время чека", "!МАГАЗИН!", "Стоимость позиции", "Сумма скидки", "операции", "сумма_списания",'номенклатура_1с']]
+            df["Фильтр время"] = "ТЕКУШИЙ МЕСЯЦ"
+            df["Месяц"] = df["Дата/Время чека"].dt.month
+            df["Год"] = df["Дата/Время чека"].dt.year
+            df["День"] = df["Дата/Время чека"].dt.day
+            df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format='%Y-%m-%d')
+            df["Day"] = df["Дата/Время чека"].dt.day
+            df = df.loc[df["Day"] < max_day]
+            #df = df.drop(["Дата/Время чека"], axis=1)
+            # роисаоение форматов
+            ln = ("Стоимость позиции", "сумма_списания", "Сумма скидки")
+            FLOAT().float_colms(name_data=df, name_col=ln, name="Текущий")
+            df.loc[df["Стоимость позиции"] > 0, "операции"] = "Выручка"
+            df.loc[df["Сумма скидки"] > 0, "операции"] = "Скидка"
+            # группировка
+            df = df.melt(
+                id_vars=["Фильтр время", "!МАГАЗИН!", "Дата/Время чека", "операции",'номенклатура_1с',"Месяц","Год","День"],
+                var_name="Статья",
+                value_name="значение").reset_index(
+            drop=True)
+            df = df.groupby(["Фильтр время", "!МАГАЗИН!", "Дата/Время чека", "операции",'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
+                "значение": "sum"}).reset_index(
+            drop=True)
+            # выполнить действия для датафрейма
+            Bot_tudey = pd.concat([Bot_tudey, df], axis=0, ignore_index=True).reset_index(drop=True)
+
+            MEMORY().mem_total(x="ТЕКУШИЙ МЕСЯЦ")
+            del df
+            gc.collect()
+            Bot_tudey = Bot_tudey.groupby(["Фильтр время","Дата/Время чека", "!МАГАЗИН!", "операции", 'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
+                "значение": "sum"}).reset_index(
+                drop=True)
+
+        # ################################################################################
+        Bot = pd.concat([Bot, Bot_tudey], axis=0, ).reset_index(drop=True)
+        del Bot_tudey
+        gc.collect()
+
+        # endregion
+
+        # region ПРОШЛЫЙ МЕСЯЦ
+        # Преобразуем строку в объект datetime
+        file_max_date_ln = pd.to_datetime(file_max_date, format='%d.%m.%Y')
+        # Определяем первый день текущего месяца
+        first_day_of_month = file_max_date_ln.replace(day=1)
+        # Определяем первый день прошлого месяца
+        first_day_of_last_month = first_day_of_month - pd.offsets.MonthBegin(1)
+        # Определяем последний день прошлого месяца
+        last_day_of_last_month = first_day_of_month - pd.offsets.Day(1)
+        # Создаем список дат прошлого месяца
+        dates_of_last_month = pd.date_range(start=first_day_of_last_month, end=last_day_of_last_month, freq='D').strftime('%d.%m.%Y').tolist()
+        # Фильтруем даты по условию "меньше file_max_date"
+        ln_mount_proshl = [date for date in dates_of_last_month if pd.to_datetime(date, format='%d.%m.%Y') < file_max_date_ln]
+        BOT().bot_mes(mes="ПРОШЛЫЙ МЕСЯЦ:\n " + "Мин: " + str(first_day_of_last_month) +  "\nМин: " + str(last_day_of_last_month))
+
+
+        Bot_last_moth = pd.DataFrame()
+        for file in ln_mount_proshl:
+            df = pd.read_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + file + '.xlsx',parse_dates=["Дата/Время чека"], date_format='%Y-%m-%d %H:%M:%S' )
+            df  = df[["Дата/Время чека","!МАГАЗИН!","Стоимость позиции","Сумма скидки","операции","сумма_списания",'номенклатура_1с']]
+            df["Фильтр время"] = "ПРОШЛЫЙ МЕСЯЦ"
+            df["Месяц"] = df["Дата/Время чека"].dt.month
+            df["Год"] = df["Дата/Время чека"].dt.year
+            df["День"] = df["Дата/Время чека"].dt.day
+            df["Дата/Время чека"]= pd.to_datetime(df["Дата/Время чека"], format='%Y-%m-%d')
+            df["Day"] = df["Дата/Время чека"].dt.day
+            df = df.loc[df["Day"]< max_day]
+
+            #df = df.drop(["Дата/Время чека"], axis=1)
+            # роисаоение форматов
+            ln = ("Стоимость позиции", "сумма_списания", "Сумма скидки")
+            FLOAT().float_colms(name_data=df, name_col=ln, name="Текущий")
+            df.loc[df["Сумма скидки"] > 0, "операции"] = "Скидка"
+            df.loc[df["Стоимость позиции"] > 0, "операции"] = "Выручка"
+            # группировка
+            print(file)
+            df = df.melt(
+                id_vars=["Фильтр время","Дата/Время чека", "!МАГАЗИН!", "операции",'номенклатура_1с',"Месяц","Год","День"],
+                var_name="Статья",
+                value_name="значение").reset_index(
+            drop=True)
+            df = df .groupby(["Фильтр время","Дата/Время чека", "!МАГАЗИН!",  "операции", 'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
+                "значение": "sum"}).reset_index(
+            drop=True)
+
+
+            # выполнить действия для датафрейма
+            #df = df.reset_index(drop=True)
+            Bot_last_moth = pd.concat([Bot_last_moth, df], axis=0,).reset_index(drop=True)
+            del df
+            gc.collect()
+            MEMORY().mem_total(x="ПРОШЛЫЙ МЕСЯЦ")
+            Bot_last_moth = Bot_last_moth.groupby(["Фильтр время", "Дата/Время чека", "!МАГАЗИН!","операции", 'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
+                "значение": "sum"}).reset_index(
+                drop=True)
+
+        # ################################################################################
+        Bot = pd.concat([Bot, Bot_last_moth], axis=0, ).reset_index(drop=True)
+        del Bot_last_moth
+        gc.collect()
+        MEMORY().mem_total(x="ПРОШЛЫЙ МЕСЯЦ конец")
+        # endregion
+
+        ############################### Товар дня
+        TOVAR_DAY = Bot.loc[Bot["номенклатура_1с"]==N1]
+        TOVAR_DAY.to_excel(PUT + "Bot\\temp\\" + "Сводная_бот_товар_дня.xlsx", index=False)
+        ###############################
+
+        Bot = Bot.groupby(["Фильтр время", "Дата/Время чека", "!МАГАЗИН!", "операции", "Месяц", "Год", "День"],
+                                              as_index=False).agg({"значение": "sum"}).reset_index(drop=True)
+
+        # Добавление ТУ
+        MEMORY().mem_total(x="3")
+        ty = RENAME().TY_Spravochnik()
+        Bot = Bot.merge(ty, on=["!МАГАЗИН!"], how="left").reset_index(drop=True)
+        del ty,TOVAR_DAY
+        gc.collect()
+
+
+
+        MEMORY().mem_total(x="4")
+
+        """Bot.to_csv(PUT + "Bot\\temp\\" + "Сводная_бот.csv", encoding="ANSI", sep=';',
+                 index=False, decimal=',')"""
+
+        Bot.to_excel(PUT + "Bot\\temp\\" + "Сводная_бот.xlsx", index=False)
+        MEMORY().mem_total(x="Память бот")
+        del Bot
+        gc.collect()
+    def Messege(self):
+        # Формирование сообщения ежедневного
+        df = pd.read_excel(PUT + "Bot\\temp\\" + "Сводная_бот.xlsx")
+        print((df))
+
+
+
+
+
+
+
+        """TY_LIST = Bot.iloc[1:, 5].unique().tolist()
+
+        if i in TY_LIST:
+            # region Переименование менеджеров
+             TY_LIST = i.replace('Турова  Анна Сергеевна', 'Турова А.С') \
+            .replace('Баранова Лариса Викторовна', 'Баранова Л.В') \
+            .replace('Геровский Иван Владимирович ', 'Геровский И.В') \
+            .replace('Изотов Вадим Валентинович', 'Изотов В.В') \
+            .replace('нет ТУ', 'Нет ТУ') \
+            .replace('Павлова Анна Александровна', 'Павлова А.А') \
+            .replace('Бедарева Наталья Геннадьевна', 'Бедарева Н.Г') \
+            .replace('Сергеев Алексей Сергеевич', 'Сергеев А.С') \
+            .replace('Карпова Екатерина Эдуардовна', 'Карпова Е.Э')
+    
+                # endregion
+    
+    
+    
+            SVODKA = f'<b>👨‍💼 {TY_LIST}:</b>\n\n' \
+                     f'<b>{podpis_mes}</b>\n' \
+                     f'<i>{date_day}</i>\n\n' \
+                     f'💰 Выручка: {df_day_sales}\n' \
+                     f'💸 Списания(показатель):\n{sig_day_sp}{df_day_sp} ({df_day_prosent})\n' \
+                     f'🔬 Детализация списания:\n' \
+                     f'     <i>• Потери: {df_day_sp_POTERY} ({df_day_sp_POTERY_prosent})</i>\n' \
+                     f'     <i>• Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})</i>\n' \
+                     f'   <i>{sig_day_DEG}Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})</i>\n' \
+                     f'     <i>• Прочее: {df_day_sp_PROCH} ({df_day_sp_PROCH_prosent})</i>\n' \
+                     f'🧾 Средний чек: -----\n\n' \
+                     f'<b>Текущий месяц:</b>\n' \
+                     f'<i>{max_date_mounth_mes}</i>\n\n' \
+                     f'💰 Выручка: {df_month_sales}\n' \
+                     f'💸 Списания(показатель):\n{sig_month_sp}{df_month_sp} ({df_month_prosent})\n' \
+                     f'🔬 Детализация списания:\n' \
+                     f'     <i>• Потери: {df_month_sp_POTERY} ({df_month_sp_POTERY_prosent})</i>\n' \
+                     f'     <i>• Хозы: {df_month_sp_HOZ} ({df_month_sp_HOZ_prosent})</i>\n' \
+                     f'   <i>{sig_month_DEG}Дегустации: {df_month_sp_DEG} ({df_month_sp_DEG_prosent})</i>\n' \
+                     f'     <i>• Прочее: {df_mounth_sp_PROCH} ({df_mounth_sp_PROCH_prosent})</i>\n'
+    
+            BOT().bot_mes_html(mes=SVODKA)
+
+
+
+
+
+        print(Bot)"""
+        return
+
+BOT_raschet().Messege()
 
 """BOT().bot_mes_RUK_FRS(mes=
                 f"В Дашборд добавлена новая страница:\n"
@@ -703,6 +1111,9 @@ class BOT:
                   f"месяцам, кварталам и годам\n\n"
                   f"Пока что все.")"""
 """оотправка сообщения в группу аналитик"""
-#BOT().bot_mes(mes="https://pythonpip.ru/examples/kak-postroit-grafik-funktsii-na-python-pri-pomoschi-matplotlib")
+#BOT().bot_mes(mes="Коллеги добрый день, запуск бота планируется на завтра.")
 #BOT().bot_raschet()
 #BOT().bot_mes_html(mes='ТЕСТ <b>жирным</b> ТЕСТ и <a href="https://www.example.com">ссылкой</a>.')
+
+#BOT_raschet().BOT()
+
