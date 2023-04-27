@@ -819,14 +819,8 @@ class BOT_raschet:
         TODEY.loc[TODEY["Сумма скидки"] > 0, "операции"] = "Скидка"
 
         # группировка
-        TODEY = TODEY.melt(
-                id_vars=["Фильтр время","Дата/Время чека", "!МАГАЗИН!" ,"операции",'номенклатура_1с',"Месяц","Год","День"],
-                var_name="Статья",
-                value_name="значение").reset_index(
-            drop=True)
         TODEY = TODEY.groupby(["Фильтр время","Дата/Время чека", "!МАГАЗИН!" , "операции",'номенклатура_1с',"Месяц","Год","День" ], as_index=False).agg({
-            "значение": "sum"}).reset_index(
-            drop=True)
+            "Стоимость позиции": "sum", "сумма_списания": "sum", "Сумма скидки": "sum"}).reset_index(drop=True)
         MEMORY().mem_total(x="СЕГОДНЯШНЯЯ ДАТА")
         Bot = pd.concat([Bot, TODEY ], axis=0, ).reset_index(drop=True)
         del  TODEY
@@ -852,14 +846,9 @@ class BOT_raschet:
         TODEY_Last.loc[TODEY_Last["Стоимость позиции"] > 0, "операции"] = "Выручка"
         TODEY_Last.loc[TODEY_Last["Сумма скидки"] > 0, "операции"] = "Скидка"
         # группировка
-        TODEY_Last = TODEY_Last.melt(
-            id_vars=["Фильтр время","Дата/Время чека", "!МАГАЗИН!", "операции",'номенклатура_1с',"Месяц","Год","День"],
-            var_name="Статья",
-            value_name="значение").reset_index(
-            drop=True)
+
         TODEY_Last = TODEY_Last.groupby(["Фильтр время", "Дата/Время чека","!МАГАЗИН!", "операции",'номенклатура_1с',"Месяц","Год","День" ], as_index=False).agg({
-            "значение": "sum"}).reset_index(
-            drop=True)
+            "Стоимость позиции": "sum","сумма_списания": "sum","Сумма скидки": "sum"}).reset_index(drop=True)
         print("111sssss1\n", TODEY_Last)
         MEMORY().mem_total(x="вЧЕРАШНЯЯ ДАТА")
         # ###############################################################################################################################################
@@ -900,26 +889,13 @@ class BOT_raschet:
             # роисаоение форматов
             ln = ("Стоимость позиции", "сумма_списания", "Сумма скидки")
             FLOAT().float_colms(name_data=df, name_col=ln, name="Текущий")
-            df.loc[df["Стоимость позиции"] > 0, "операции"] = "Выручка"
-            df.loc[df["Сумма скидки"] > 0, "операции"] = "Скидка"
-            # группировка
-            df = df.melt(
-                id_vars=["Фильтр время", "!МАГАЗИН!", "Дата/Время чека", "операции",'номенклатура_1с',"Месяц","Год","День"],
-                var_name="Статья",
-                value_name="значение").reset_index(
-            drop=True)
-            df = df.groupby(["Фильтр время", "!МАГАЗИН!", "Дата/Время чека", "операции",'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
-                "значение": "sum"}).reset_index(
-            drop=True)
             # выполнить действия для датафрейма
             Bot_tudey = pd.concat([Bot_tudey, df], axis=0, ignore_index=True).reset_index(drop=True)
-
             MEMORY().mem_total(x="ТЕКУШИЙ МЕСЯЦ")
             del df
             gc.collect()
             Bot_tudey = Bot_tudey.groupby(["Фильтр время","Дата/Время чека", "!МАГАЗИН!", "операции", 'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
-                "значение": "sum"}).reset_index(
-                drop=True)
+                "Стоимость позиции": "sum","сумма_списания": "sum","Сумма скидки": "sum"}).reset_index(drop=True)
 
         # ################################################################################
         Bot = pd.concat([Bot, Bot_tudey], axis=0, ).reset_index(drop=True)
@@ -963,15 +939,10 @@ class BOT_raschet:
             df.loc[df["Сумма скидки"] > 0, "операции"] = "Скидка"
             df.loc[df["Стоимость позиции"] > 0, "операции"] = "Выручка"
             # группировка
-            print(file)
-            df = df.melt(
-                id_vars=["Фильтр время","Дата/Время чека", "!МАГАЗИН!", "операции",'номенклатура_1с',"Месяц","Год","День"],
-                var_name="Статья",
-                value_name="значение").reset_index(
-            drop=True)
+
+
             df = df .groupby(["Фильтр время","Дата/Время чека", "!МАГАЗИН!",  "операции", 'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
-                "значение": "sum"}).reset_index(
-            drop=True)
+                "Стоимость позиции": "sum","сумма_списания": "sum","Сумма скидки": "sum"}).reset_index(drop=True)
 
 
             # выполнить действия для датафрейма
@@ -981,23 +952,23 @@ class BOT_raschet:
             gc.collect()
             MEMORY().mem_total(x="ПРОШЛЫЙ МЕСЯЦ")
             Bot_last_moth = Bot_last_moth.groupby(["Фильтр время", "Дата/Время чека", "!МАГАЗИН!","операции", 'номенклатура_1с',"Месяц","Год","День"], as_index=False).agg({
-                "значение": "sum"}).reset_index(
-                drop=True)
+                 "Стоимость позиции": "sum","сумма_списания": "sum","Сумма скидки": "sum"}).reset_index(drop=True)
 
         # ################################################################################
         Bot = pd.concat([Bot, Bot_last_moth], axis=0, ).reset_index(drop=True)
         del Bot_last_moth
         gc.collect()
         MEMORY().mem_total(x="ПРОШЛЫЙ МЕСЯЦ конец")
-        # endregion
 
+        # endregion
         ############################### Товар дня
-        TOVAR_DAY = Bot.loc[Bot["номенклатура_1с"]==N1]
+        TOVAR_DAY= Bot.loc[Bot["номенклатура_1с"] == N1]
+
         TOVAR_DAY.to_excel(PUT + "Bot\\temp\\" + "Сводная_бот_товар_дня.xlsx", index=False)
         ###############################
 
         Bot = Bot.groupby(["Фильтр время", "Дата/Время чека", "!МАГАЗИН!", "операции", "Месяц", "Год", "День"],
-                                              as_index=False).agg({"значение": "sum"}).reset_index(drop=True)
+                          as_index=False).agg({  "Стоимость позиции": "sum","сумма_списания": "sum","Сумма скидки": "sum"}).reset_index(drop=True)
 
         # Добавление ТУ
         MEMORY().mem_total(x="3")
@@ -1017,6 +988,7 @@ class BOT_raschet:
         MEMORY().mem_total(x="Память бот")
         del Bot
         gc.collect()
+        BOT().bot_mes(mes="DВСЕЕЕЕЕСССССССССССССССССС")
     def Messege(self):
         # Формирование сообщения ежедневного
         df = pd.read_excel(PUT + "Bot\\temp\\" + "Сводная_бот.xlsx")
