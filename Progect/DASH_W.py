@@ -254,7 +254,7 @@ class NEW:
         fail = [f for f in poisk_2max if f.endswith('.xlsx') and len(f) > 10 and datetime.strptime(f[:10], format)]
 
         fail.sort(key=lambda x: datetime.strptime(x[:10], format))
-        latest_files = fail[-7:]
+        latest_files = fail[-3:]
 
         file_paths = [os.path.join(PUT_SET, f) for f in latest_files]
         # Список таблиц с данными за текущий месяц

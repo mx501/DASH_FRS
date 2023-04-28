@@ -77,7 +77,7 @@ OBNOVLENIE_file_all = "y"
 # endregion
 Selenium_skachka = 1 # поиск
 Selenium = 1 # ожидание
-Histori_1_sayt_2 = 2 # сайт или история
+Histori_1_sayt_2 = 1 # сайт или история
 
 class MEMORY:
     def mem(self, x, text):
@@ -143,11 +143,223 @@ class FLOAT:
 """тветчает за присвоение чсловых значени"""
 class SET:
     def Set_obrabotka(self):
-        SET().selenium_day_Spisania()
         if Histori_1_sayt_2 ==1:
+            if Selenium_skachka == 1:
+                # region СКАЧИВАНИЕ С САЙТА
+                warnings.filterwarnings('ignore')  ##отключаем warnings
+                ua = UserAgent()
+                options = webdriver.ChromeOptions()
+                options.add_argument("user_agent=" + ua.random)
+                driver = webdriver.Chrome(chrome_options=options)
+                url = 'http://10.32.2.51:8443/operday/checks'
+                driver.get(url)
+                t.sleep(5)
+                driver.set_window_size(1024, 600)
+                driver.maximize_window()
+                t.sleep(2)
+                id_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[1]/div/input')
+                t.sleep(1)
+                id_box.send_keys('soldatovas')
+                t.sleep(2)
+                pass_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[2]/div/input')
+                t.sleep(1)
+                pass_box.send_keys('JQJW64JqR')
+                t.sleep(2)
+                print("Вход на сайт...")
+                login_button = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/button/span[1]')
+                t.sleep(1)
+                login_button.click()
+                t.sleep(15)
+
+                def back(pole):
+                    print("Возврат")
+                    i = 0
+                    while i < 12:
+                        pole.send_keys(Keys.BACKSPACE)
+                        i += 1
+
+                try:
+                    t.sleep(1)
+                    menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
+                except:
+                    t.sleep(1)
+                    print(menu.text)
+                finally:
+                    t.sleep(1)
+                    menu.click()
+                try:
+                    t.sleep(1)
+                    menu_op_day_cheks = WebDriverWait(driver, 15).until(
+                        EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]/span')))
+                except:
+                    t.sleep(1)
+                    d = "no"
+                finally:
+                    t.sleep(1)
+                    if d == "no":
+                        print("но")
+                        try:
+                            menu_op_day = WebDriverWait(driver, 15).until(
+                                EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[1]/span')))
+                        finally:
+                            t.sleep(2)
+                            menu_op_day.click()
+                            print("click operday")
+                        try:
+                            menu_op_day_cheks = WebDriverWait(driver, 15).until(
+                                EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]')))
+                        finally:
+                            t.sleep(2)
+                            menu_op_day_cheks.click()
+                            print("m")
+                    else:
+                        t.sleep(1)
+                        menu_op_day_cheks.click()
+                print("Отправлен на скачивание.....")
+                # region СПИСОК ДАТ
+                today = datetime.now()
+                yesterday = today - timedelta(days=1)
+                date_vchera = yesterday.strftime('%d.%m.%Y')
+
+                spisok_d = [datetime.now().strftime('%d.%m.%Y')]
+                spisok_d.append(date_vchera)
+
+                #spisok_d = ['23.04.2023', '24.04.2023', '25.04.2023', '26.04.2023']
+
+                #start_date = date(2023, 3, 1)  # начальная дата
+                # end_date = date(2024, 4, 26)  # конечная дата
+                #delta = timedelta(days=1)  # шаг даты
+
+                #dates_list = []
+                #while start_date < end_date:
+                   # # преобразование даты в строку в формате 'день.месяц.год' и добавление её в список
+                   # dates_list.append(start_date.strftime('%d.%m.%Y'))
+                   # start_date += delta
+                #spisok_d = dates_list
+
+                for day in spisok_d:
+                    bot.BOT().bot_mes(mes="Скачивание файла :" + str(day))
+                    new_day_1 = day + " 00:00"
+                    t.sleep(1)
+                    new_day_2 = day + " 23:59"
+                    try:
+                        t.sleep(1)
+                        menu_data_n = WebDriverWait(driver, 15).until(EC.presence_of_element_located(
+                            (By.XPATH, '/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[1]/div/div/div/input')))
+                    finally:
+                        print("BACK")
+                        back(menu_data_n)
+                        t.sleep(2)
+                        print("вводим данные")
+                        menu_data_n.send_keys(new_day_1)
+                        print('sleep')
+                    t.sleep(2)
+                    try:
+                        t.sleep(1)
+                        menu_data_k = WebDriverWait(driver, 15).until(EC.presence_of_element_located(
+                            (By.XPATH, '/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[2]/div/div/div/input')))
+                    finally:
+                        t.sleep(1)
+                        menu_data_k.clear()
+                        t.sleep(1)
+                        back(menu_data_k)
+                        t.sleep(2)
+                        print("вводим данные")
+                        menu_data_k.send_keys(new_day_2)
+                        print('sleep')
+                    t.sleep(2)
+                    # endregion
+                    try:
+                        t.sleep(1)
+                        menu_primenit = WebDriverWait(driver, 15).until(
+                            EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/button[2]/span[1]')))
+                    finally:
+                        t.sleep(2)
+                        menu_primenit.click()
+                    t.sleep(2)
+                    down = ""
+                    try:
+                        t.sleep(2)
+                        dowload = WebDriverWait(driver, 15).until(
+                            EC.presence_of_element_located(
+                                (By.XPATH, '/html/body/div/div/div/div[2]/div/div/div/div[1]/div[2]/div[3]/div[1]/div/div/button/span[1]')))
+                    except:
+                        down = "no"
+                    finally:
+                        if down == "no":
+                            print("нет кнопки")
+                        else:
+                            t.sleep(1)
+                            dowload.click()
+
+                        try:
+                            dowload_all = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/ul/li[2]')))
+                        finally:
+                            t.sleep(1)
+                            dowload_all.click()
+                            t.sleep(10)
+                            x = ""
+                        try:
+                            t.sleep(1)
+                            dowload_yes = WebDriverWait(driver, 15).until(
+                                EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div/div[3]/button[2]/span[1]')))
+                        except:
+                            x = "no"
+                        finally:
+                            if x == "no":
+                                print("но")
+                            else:
+                                t.sleep(3)
+                                dowload_yes.click()
+                                t.sleep(1)
+
+                    if Selenium == 1:
+                        folder_path = r"C:\Users\lebedevvv\Downloads"  # путь до папки, которую необходимо мониторить
+                        partial_name = "PurchasePositions"  # подстрока, которую необходимо найти
+                        found_file = False
+                        bot.BOT().bot_mes(mes="Ожидание файла....")
+                        while not found_file:
+                            for filename in os.listdir(folder_path):
+                                if partial_name in filename and filename.endswith(".xlsx"):
+                                    # найден файл, удовлетворяющий условиям
+                                    print(f"Найден файл: {filename}")
+                                    found_file = True
+                                    bot.BOT().bot_mes(mes="Фаил найден....")
+
+                                # Проверьте, был ли найден файл. Если нет, подождите несколько секунд и повторите попытку
+                                if not found_file:
+                                    print(f"Файл {partial_name} не найден. Ожидание...")
+                                    t.sleep(5)  # задержка в 5 секунд перед следующей попыткой поиска файла
+                        t.sleep(60)
+                        path_download = r"C:\Users\lebedevvv\Downloads"
+
+                        print("Загрузка списка маазинов....")
+                        spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
+                        spqr = spqr[['ID', '!МАГАЗИН!']]
+                        files = os.listdir(path_download)
+                        print(files, " и ", path_download)
+                        for f in files:
+                            d = len(f)
+                            file_name = f[0:17]
+                            file = path_download + "\\" + f
+                            if str(file_name) == "PurchasePositions":
+                                df = pd.read_excel(file, skiprows=1)
+                                MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file))
+
+                                d = df['Дата/Время чека'][1]
+                                new_filename = d[0:10] + ".xlsx"
+
+
+                                df.to_excel(PUT + "Источники\\Set\\" + new_filename, index=False)
+                                bot.BOT().bot_mes(mes="Фаил скачан: " + str(new_filename))
+
+                                os.remove(file)
+                if Selenium_skachka == 1:
+                    driver.close()
+                    driver.quit()
                 SET().History()
-        else:
-            bot.BOT_raschet().BOT()
+                bot.BOT_raschet().BOT()
+
         return
     def History(self):
         spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
@@ -159,7 +371,7 @@ class SET:
                 print(file_path)
 
                 df  = pd.read_excel(file_path)
-                df = df.drop(["Магазин 1C"], axis=1)
+                #df = df.drop(["Магазин 1C"], axis=1)
                 MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file_path))
 
                 d = df['Дата/Время чека'][1]
@@ -322,6 +534,7 @@ class SET:
 
 
         # Доавление списания
+        SET().selenium_day_Spisania()
         file_spis = PUT + "Данные 1с\\Списания\\" + name_file[:-5] + ".txt"
         if os.path.exists(file_spis):
             spis = pd.read_csv(file_spis, sep="\t", skiprows=1,encoding="utf-8",
