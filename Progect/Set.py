@@ -158,46 +158,45 @@ class SET:
                 driver.maximize_window()
                 t.sleep(2)
                 id_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[1]/div/input')
-                t.sleep(1)
-                id_box.send_keys('soldatovas')
+                t.sleep(0.5)
+                id_box.send_keys('lebedevvv')
                 t.sleep(2)
                 pass_box = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/div[2]/div/input')
-                t.sleep(1)
-                pass_box.send_keys('JQJW64JqR')
+                t.sleep(0.5)
+                pass_box.send_keys('hCPxMeOdp')
                 t.sleep(2)
                 print("Вход на сайт...")
                 login_button = driver.find_element(By.XPATH, '/html/body/div/div/div/div[1]/form/div/button/span[1]')
-                t.sleep(1)
+                t.sleep(0.5)
                 login_button.click()
                 t.sleep(15)
 
                 def back(pole):
-                    print("Возврат")
+                    print("Ввод новойдаты")
                     i = 0
                     while i < 12:
                         pole.send_keys(Keys.BACKSPACE)
                         i += 1
 
                 try:
-                    t.sleep(1)
+                    t.sleep(0.5)
                     menu = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'appBarLeftButton')))
                 except:
-                    t.sleep(1)
+                    t.sleep(0.5)
                     print(menu.text)
                 finally:
-                    t.sleep(1)
+                    t.sleep(0.5)
                     menu.click()
                 try:
-                    t.sleep(1)
+                    t.sleep(0.5)
                     menu_op_day_cheks = WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div[2]/div[2]/div[2]/div/div/div/div[1]/div[1]/span')))
                 except:
-                    t.sleep(1)
+                    t.sleep(0.5)
                     d = "no"
                 finally:
                     t.sleep(1)
                     if d == "no":
-                        print("но")
                         try:
                             menu_op_day = WebDriverWait(driver, 15).until(
                                 EC.presence_of_element_located((By.XPATH, '/html/body/div/div/div/div[1]/div/div[2]/div[2]/div[1]/span')))
@@ -247,12 +246,10 @@ class SET:
                         menu_data_n = WebDriverWait(driver, 15).until(EC.presence_of_element_located(
                             (By.XPATH, '/html/body/div[1]/div/div/div[2]/div/div/div/div[1]/div[2]/div[2]/div[1]/div/div/div[1]/div/div/div/input')))
                     finally:
-                        print("BACK")
                         back(menu_data_n)
                         t.sleep(2)
                         print("вводим данные")
                         menu_data_n.send_keys(new_day_1)
-                        print('sleep')
                     t.sleep(2)
                     try:
                         t.sleep(1)
@@ -266,7 +263,6 @@ class SET:
                         t.sleep(2)
                         print("вводим данные")
                         menu_data_k.send_keys(new_day_2)
-                        print('sleep')
                     t.sleep(2)
                     # endregion
                     try:
@@ -352,7 +348,8 @@ class SET:
 
                                 df.to_excel(PUT + "Источники\\Set\\" + new_filename, index=False)
                                 bot.BOT().bot_mes(mes="Фаил скачан: " + str(new_filename))
-
+                                del df
+                                gc.collect()
                                 os.remove(file)
                 if Selenium_skachka == 1:
                     driver.close()
@@ -368,7 +365,6 @@ class SET:
             for file in files:
                 os.path.basename(file)
                 file_path = os.path.join(root, file)
-                print(file_path)
 
                 df  = pd.read_excel(file_path)
                 #df = df.drop(["Магазин 1C"], axis=1)
@@ -524,7 +520,6 @@ class SET:
                   "Количество":"sum",
                   "Сумма скидки": "sum"}) \
             .sort_values("!МАГАЗИН!", ascending=False).reset_index(drop=True)
-        print(sales_day_sales)
 
         sales_day_sales['filename'] = os.path.basename(name_file)[:-5]
         sales_day_sales = sales_day_sales.drop(["Дата/Время чека"], axis=1)
@@ -545,11 +540,7 @@ class SET:
             spis = spis.drop(["Дата/Время чека"], axis=1)
             spis = spis.rename(columns={'filename': "Дата/Время чека"})
             spis["Дата/Время чека"] = pd.to_datetime(spis["Дата/Время чека"], format='%d.%m.%Y')
-
-
             sales_day_sales = pd.concat([sales_day_sales, spis], axis=0).reset_index(drop=True)
-
-
 
         return sales_day_sales
     """ОБРАБОТКА ПРОДАЖ"""
@@ -558,10 +549,8 @@ class SET:
             for file in files:
                 os.path.basename(file)
                 file_path = os.path.join(root, file)
-                print(file_path)
                 df = pd.read_csv(file_path, sep="\t", encoding='utf-8', skiprows=7, parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y",
                                  names=("!МАГАЗИН!","номенклатура_1с", "Дата/Время чека","операции", "сумма_списания", "сумма_списания_НДС"))
-                print( df)
                 RENAME().Rread(name_data=df, name_col="!МАГАЗИН!", name="Списания")
                 df = df.loc[df["!МАГАЗИН!"] != "Итого"]
                 df = df.loc[df["Дата/Время чека"] != "Итого"]
@@ -577,15 +566,12 @@ class SET:
                 dates = df["Дата/Время чека"].unique()
                 date_str = dates.strftime("%d.%m.%Y")
 
-                print(df)
-
                 #df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format='%d.%m.%Y')
 
                 for date in date_str :
-                    print(date)
+
                     df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format="%d.%m.%Y")
                     day_df = df.loc[df["Дата/Время чека"] == pd.to_datetime(date, format="%d.%m.%Y")]
-                    print(df)
                     file_name = os.path.join(PUT + "Данные 1с\\Списания\\", date + ".txt")
                     day_df.to_csv(file_name, sep="\t", encoding="utf-8", decimal=".", index=False)
                     MEMORY().mem_total(x="Разбиение по дням: " + os.path.basename(file))
