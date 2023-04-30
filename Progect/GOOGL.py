@@ -217,8 +217,8 @@ class tbl:
 
             # Вывод ссылки на таблицу
             Goole_url = f'https://docs.google.com/spreadsheets/d/{file_id}'
-            #print(f'Ссылка на таблицу - {i} :  {Goole_url}')
-            return Goole_url
+            print(f'Ссылка на таблицу - {i} :  {Goole_url}')
+        return
     def Info(self):
         # Параметры авторизации
         creds = service_account.Credentials.from_service_account_file('C:\\Users\\lebedevvv\\Desktop\\PYTHON PROJECT\\DASH_FRS\\Progect\\client_secret.json')
@@ -241,13 +241,17 @@ class tbl:
         return alltbl,service,creds
     def dele(self):
         alltbl,service,creds= tbl().Info()
+        alltbl = ["15Xtm6fkYURByhP6hH7jkfYy2NujEcMS4f-Q8MBHm0mU","1uGKD1_nch8ZNjDNT_7iNz0csX_5jhbBviKT7fNgWUfY","1o0ClmIxplhZdSByNTt23fho7sT8skLRBiL4orgeWmBw",
+                  "1k4exQcoZG3i8y6kqlVGNnImMsI-Vhk4xp4P9EB8pCKU"]
+
         for i in alltbl:
             file_id = i
             response = service.files().delete(fileId=file_id).execute()
             print("удаление " ,i)
 
-tbl().new()
+#tbl().dele()
+#tbl().new()
 #tbl().record(name="Карпова Е.Э_Прошлый день")
 #tbl().stil()
-tbl().Info()
+#tbl().Info()
 

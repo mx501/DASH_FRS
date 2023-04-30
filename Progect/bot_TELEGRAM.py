@@ -1175,7 +1175,7 @@ class BOT_raschet:
                     BOT().bot_mes_html_TY(mes=SVODKA)
 
 #BOT_raschet().BOT()
-#BOT_raschet().Messege()
+BOT_raschet().Messege()
 
 # Формирование сообщения ежедневного
 
