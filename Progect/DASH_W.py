@@ -1117,7 +1117,7 @@ class PROGNOZ:
 
 #NEW().Check_set()
 #NEW().Stavka_nds_Kanal()
-#NEW().Finrez()
+NEW().Finrez()
 #NEW().Obnovlenie_error()
 NEW().Obnovlenie()
 #PROGNOZ().SALES_obrabotka()

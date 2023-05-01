@@ -949,7 +949,7 @@ class BOT_raschet:
             'Геровский Иван Владимирович': 'Геровский И.В', TY_LIST = ['Геровский И.В','Турова А.С']  """
 
 
-        if  current_time<f:
+        if  current_time>f:
 
             """ВЫЧИСЛЕНИЯ ДЛЯ ПРОШЛОГО ДНЯ"""
             for i in TY_LIST:
