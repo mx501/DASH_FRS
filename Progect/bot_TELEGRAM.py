@@ -751,36 +751,66 @@ class BOT_raschet:
 
             return plan_sales
         def fil_pisk(file,priznak):
-            x = pd.read_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + file + '.xlsx', parse_dates=["Дата/Время чека"],
-                               date_format='%Y-%m-%d %H:%M:%S')
+            print("__________________________________________________________",priznak)
+            file_p = file + '.xlsx'
+            folder1 = PUT + "↓ТЕКУЩИЙ МЕСЯЦ\\Продажи текущий месяц\\"
+            folder2 = PUT + "↓АРХИВ для дш\\Продажи\\Архив\\2023\\"
+            for folder in [folder1, folder2]:
+                file_path = os.path.join(folder, file_p)
+                if os.path.exists(file_path):
+                   #print(f"Файл {file_p} найден в папке {folder}.")
+                    print(file_path)
+                    x = pd.read_excel(file_path, parse_dates=["Дата/Время чека"],date_format='%Y-%m-%d %H:%M:%S')
+                    print(priznak, "\n", x)
+                    x = x[["Дата/Время чека", "!МАГАЗИН!", "Стоимость позиции", "Сумма скидки", "операции", "сумма_списания", 'номенклатура_1с']]
+                    x["Фильтр время"] = priznak
+                    x["Месяц"] = x["Дата/Время чека"].dt.month
+                    x["Год"] = x["Дата/Время чека"].dt.year
+                    x["День"] = x["Дата/Время чека"].dt.day
+                    x["Дата/Время чека"] = pd.to_datetime(x["Дата/Время чека"], format='%Y-%m-%d')
+                    x["Day"] = x["Дата/Время чека"].dt.day
+                    with open(PUT + 'Bot\\temp\\max_date.txt', 'r') as f:
+                        max_date_ = f.read().strip()
+                        print(max_date_)
+                        max_date_DAY = datetime.strptime(max_date_, '%Y-%m-%d %H:%M:%S').day
+                        max_date_ = datetime.strptime(max_date_, '%Y-%m-%d %H:%M:%S')
 
-            x = x[["Дата/Время чека", "!МАГАЗИН!", "Стоимость позиции", "Сумма скидки", "операции", "сумма_списания", 'номенклатура_1с']]
-            x["Фильтр время"] = priznak
-            x["Месяц"] = x["Дата/Время чека"].dt.month
-            x["Год"] = x["Дата/Время чека"].dt.year
-            x["День"] = x["Дата/Время чека"].dt.day
-            x["Дата/Время чека"] = pd.to_datetime(x["Дата/Время чека"], format='%Y-%m-%d')
-            x["Day"] = x["Дата/Время чека"].dt.day
-            x = x.loc[x["Day"] < max_day]
-            # роисаоение форматов
-            ln = ("Стоимость позиции", "сумма_списания", "Сумма скидки")
-            FLOAT().float_colms(name_data=x, name_col=ln)
-            x.loc[x["Стоимость позиции"] > 0, "операции"] = "Выручка"
-            x.loc[x["Сумма скидки"] > 0, "операции"] = "Скидка"
-            x = col_n(x=x)
-            MEMORY().mem_total(x="текуищий до")
-            x = x.groupby(["Фильтр время", 'номенклатура_1с', "!МАГАЗИН!", "Месяц", "Год"],
-                            as_index=False).agg(
-                {"Выручка": "sum", "сумма_списания": "sum", "Сумма скидки": "sum", "Дегустации": "sum", "Хозяйственные товары": "sum",
-                 "Списания": "sum"}).reset_index(drop=True)
-            return x
+                        print(max_date_DAY)
+                    if priznak == "сегодня":
+                        x = x
+
+                    if  priznak == "ВЧЕРАШНЯЯ ДАТА":
+                        x = x
+                        """x = x.loc[x["Дата/Время чека"] == pd.to_datetime(max_date_, format='%d.%m.%Y') - pd.offsets.Day(1)]
+                        x = x.loc[x["Дата/Время чека"] == pd.to_datetime(max_date_, format='%d.%m.%Y') - pd.offsets.Day(2)]
+                        x = x.loc[x["Дата/Время чека"] == pd.to_datetime(max_date_, format='%d.%m.%Y') - pd.offsets.Day(3)]"""
+                    if priznak == "ПРОШЛЫЙ МЕСЯЦ":
+                        x = x.loc[x["День"] < max_date_DAY]
+                    if priznak == "ТЕКУШИЙ МЕСЯЦ":
+                        x = x.loc[x["День"] < max_date_DAY]
+
+
+                    # роисаоение форматов
+                    ln = ("Стоимость позиции", "сумма_списания", "Сумма скидки")
+                    FLOAT().float_colms(name_data=x, name_col=ln)
+                    x.loc[x["Стоимость позиции"] > 0, "операции"] = "Выручка"
+                    x.loc[x["Сумма скидки"] > 0, "операции"] = "Скидка"
+
+                    x = col_n(x=x)
+
+                    x = x.groupby(["Фильтр время", 'номенклатура_1с', "!МАГАЗИН!", "Месяц", "Год"],
+                                    as_index=False).agg(
+                        {"Выручка": "sum", "сумма_списания": "sum", "Сумма скидки": "sum", "Дегустации": "sum", "Хозяйственные товары": "sum",
+                         "Списания": "sum"}).reset_index(drop=True)
+                    print(priznak,"\n",x)
+                    return x
 
 
         ##########################
         # region ПОИСК МАКСИМАЛЬНОЙ ДАТЫ
         max_date = datetime.min  # установим начальное значение для максимальной даты
 
-        for filename in os.listdir(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\"):
+        for filename in os.listdir(PUT + "↓ТЕКУЩИЙ МЕСЯЦ\\Продажи текущий месяц\\"):
                 try:
                     file_date = datetime.strptime(filename[:-5], '%d.%m.%Y')  # извлекаем дату из названия файла
                     if file_date > max_date:
@@ -790,6 +820,9 @@ class BOT_raschet:
         # дата максимальная в формате названия файла
         date_obj = datetime.strptime(str(max_date), '%Y-%m-%d %H:%M:%S')
         file_max_date = date_obj.strftime('%d.%m.%Y')
+        print("sdfsdfsdf", file_max_date)
+
+
         # endregion
         # максимальный год
         max_year = max_date.year
@@ -806,7 +839,10 @@ class BOT_raschet:
         # region СЕГОДНЯШНЯЯ ДАТА
         TODEY_date_file = pd.to_datetime(file_max_date, format='%d.%m.%Y').strftime('%d.%m.%Y')
         BOT().bot_mes(mes="СЕГОДНЯШНЯЯ ДАТА:\n " + str(TODEY_date_file))
-        TODEY = pd.read_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + str(TODEY_date_file) + '.xlsx', parse_dates=["Дата/Время чека"],
+        #TODEY_date_Todey = pd.to_datetime(file_max_date, format='%d.%m.%Y')
+        file = str(TODEY_date_file)
+        TODEY = fil_pisk(file=file, priznak="сегодня")
+        """TODEY = pd.read_excel(PUT + "↓ТЕКУЩИЙ МЕСЯЦ\\Продажи текущий месяц\\" + str(TODEY_date_file) + '.xlsx', parse_dates=["Дата/Время чека"],
                            date_format='%Y-%m-%d %H:%M:%S')
 
         TODEY["Фильтр время"] = "сегодня"
@@ -822,26 +858,40 @@ class BOT_raschet:
 
         TODEY = TODEY.groupby(["Фильтр время", 'номенклатура_1с', "!МАГАЗИН!", "Месяц", "Год"],
                                         as_index=False).agg(
-            {"Выручка": "sum", "Сумма скидки": "sum"}).reset_index(drop=True)
+            {"Выручка": "sum", "Сумма скидки": "sum"}).reset_index(drop=True)"""
         Bot = pd.concat([Bot, TODEY ], axis=0, ).reset_index(drop=True)
-
-
-        del  TODEY
+        del  TODEY,file
         gc.collect()
         MEMORY().mem_total(x="1")
+
+
         # endregion
         # region вЧЕРАШНЯЯ ДАТА
         TODEY_Last = pd.to_datetime(file_max_date, format='%d.%m.%Y') - pd.offsets.Day(1)
+
+        # для выходных
+        TODEY_Last1 = pd.to_datetime(file_max_date, format='%d.%m.%Y') - pd.offsets.Day(2)
+        TODEY_Last1 = TODEY_Last.strftime('%d.%m.%Y')
+        TODEY_Last2 = pd.to_datetime(file_max_date, format='%d.%m.%Y') - pd.offsets.Day(3)
+        TODEY_Last2 = TODEY_Last.strftime('%d.%m.%Y')
         TODEY_Last = TODEY_Last.strftime('%d.%m.%Y')
-        BOT().bot_mes(mes="ВЧЕРАШНЯЯ ДАТА:\n " + str(TODEY_Last))
-        file = str(TODEY_Last)
-        df = fil_pisk(file=file, priznak="ВЧЕРАШНЯЯ ДАТА")
-        # ###############################################################################################################################################
-        Bot = pd.concat([Bot, df], axis=0, ).reset_index(drop=True)
+
+
+        BOT().bot_mes(mes="Дата вчера:\n " + str(TODEY_Last))
+        file = [str(TODEY_Last)]
+
+        file.append(TODEY_Last1)
+        file.append(TODEY_Last2)
+        for file in file:
+            df = fil_pisk(file=file,priznak="ВЧЕРАШНЯЯ ДАТА")
+            Bot = pd.concat([Bot, df], axis=0, ).reset_index(drop=True)
         del TODEY_Last,df
         gc.collect()
-        # endregion
+        #df = fil_pisk(file=file, priznak="ВЧЕРАШНЯЯ ДАТА")
+        # ###############################################################################################################################################
+        #Bot = pd.concat([Bot, df], axis=0, ).reset_index(drop=True)
 
+        # endregion
         # region ПРОШЛЫЙ МЕСЯЦ
         # Преобразуем строку в объект datetime
         file_max_date_ln = pd.to_datetime(file_max_date, format='%d.%m.%Y')
@@ -868,14 +918,15 @@ class BOT_raschet:
         # region ТЕКУШИЙ МЕСЯЦ
         # строку в объект datetime
         file_max_date_ln = pd.to_datetime(file_max_date, format='%d.%m.%Y')
-        file_max_date_ln = file_max_date_ln - pd.offsets.Day(1)
+        #file_max_date_ln = file_max_date_ln - pd.offsets.Day(1)
         # Определяем первый день текущего месяца
         first_day_of_month = file_max_date_ln.replace(day=1)
         # список дат
         dates_of_last_month = pd.date_range(start=first_day_of_month , end=file_max_date_ln, freq='D').strftime('%d.%m.%Y').tolist()
+        print(dates_of_last_month)
         # Фильтруем даты по условию "меньше file_max_date"
         ln_mount_tec = [date for date in dates_of_last_month if pd.to_datetime(date, format='%d.%m.%Y')]
-
+        print(dates_of_last_month)
         BOT().bot_mes(mes="Текущий месяц:\n " + "Мин: " + str(first_day_of_month)[:-9] + "\nМин: " + str(file_max_date_ln)[:-9])
 
 
@@ -901,7 +952,7 @@ class BOT_raschet:
             'Баранова Лариса Викторовна': 'Баранова Л.В',
             'Геровский Иван Владимирович': 'Геровский И.В',
             'Изотов Вадим Валентинович': 'Изотов В.В',
-            'нет ТУ': 'Томск',
+            'Томск': 'Томск',
             'Павлова Анна Александровна': 'Павлова А.А',
             'Бедарева Наталья Геннадьевна': 'Бедарева Н.Г',
             'Сергеев Алексей Сергеевич':'Сергеев А.С',
@@ -912,6 +963,7 @@ class BOT_raschet:
         ############################### Товар дня
         TOVAR_DAY= Bot.loc[Bot["номенклатура_1с"] == N1]
         ###############################
+        print(Bot)
         Bot = Bot.groupby(["Фильтр время", "!МАГАЗИН!", "Месяц", "Год","Менеджер"],
                           as_index=False).agg({"Выручка": "sum", "сумма_списания": "sum", "Сумма скидки": "sum","Дегустации": "sum","Хозяйственные товары": "sum","Списания": "sum"}).reset_index(drop=True)
         Bot.to_excel(PUT + "Bot\\temp\\" + "Сводная_бот.xlsx", index=False)
@@ -939,6 +991,7 @@ class BOT_raschet:
         current_time = now.strftime("%H:%M:%S")
         f = "10:00:00"
         df = pd.read_excel(PUT + "Bot\\temp\\" + "Сводная_бот.xlsx")
+        print(df)
         # region ТЕРРИТОРИАЛЫ
         # получение списка териториалов
         TY_LIST = df.iloc[1:, 4].unique().tolist()
@@ -949,7 +1002,7 @@ class BOT_raschet:
             'Геровский Иван Владимирович': 'Геровский И.В', TY_LIST = ['Геровский И.В','Турова А.С']  """
 
 
-        if  current_time>f:
+        if  current_time<f:
 
             """ВЫЧИСЛЕНИЯ ДЛЯ ПРОШЛОГО ДНЯ"""
             for i in TY_LIST:
@@ -1102,8 +1155,6 @@ class BOT_raschet:
 
 
 
-
-
                     # region условия
                     """ДЛЯ ПРОШЛОГО ДНЯ"""
                     sig_day_DEG = "  • "
@@ -1120,8 +1171,8 @@ class BOT_raschet:
                              f'💸 Списания(показатель):\n{sig_day_sp}{df_day_sp} ({df_day_prosent})\n' \
                              f'     <i>• Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})</i>\n' \
                              f'   <i>{sig_day_DEG}Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})</i>\n' \
-                             f'🧾 Средний чек: -----\n' \
-                             f'<b>Текущий месяц: <a href="{Goole_url_mes}">ссылкa</a></b>\n' \
+                             f'🧾 Средний чек: -----\n\n' \
+                             f'<b>Текущий месяц(Без сегодня): <a href="{Goole_url_mes}">ссылкa</a></b>\n' \
                              f'<i>{max_date_mounth_mes}</i>\n\n' \
                              f'💰 Выручка: {df_month_sales}\n' \
                              f'💸 Списания(показатель):\n{sig_month_sp}{df_month_sp} ({df_month_prosent})\n' \
@@ -1175,7 +1226,7 @@ class BOT_raschet:
                     BOT().bot_mes_html_TY(mes=SVODKA)
 
 #BOT_raschet().BOT()
-BOT_raschet().Messege()
+#BOT_raschet().Messege()
 
 # Формирование сообщения ежедневного
 

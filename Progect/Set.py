@@ -216,12 +216,27 @@ class SET:
                         menu_op_day_cheks.click()
                 print("Отправлен на скачивание.....")
                 # region СПИСОК ДАТ
+
+
+
+
+
+
                 today = datetime.now()
-                yesterday = today - timedelta(days=1)
-                date_vchera = yesterday.strftime('%d.%m.%Y')
+                tame_Filter = today.strftime("%H:%M:%S")
 
                 spisok_d = [datetime.now().strftime('%d.%m.%Y')]
-                spisok_d.append(date_vchera)
+                # сохранение файла с датой обновления
+                with open(PUT + 'NEW\\дата обновления.txt', 'w') as f:
+                    f.write(str(today))
+                ta = "11:00:00"
+                if tame_Filter<ta:
+                    day_1 = today - timedelta(days=1)
+                    date_vchera = day_1.strftime('%d.%m.%Y')
+                    #day_2 = today - timedelta(days=2)
+                    #date_poz_vchera = day_2.strftime('%d.%m.%Y')
+                    spisok_d.append(date_vchera)
+                    #spisok_d.append(date_poz_vchera)
 
                 #spisok_d = ['23.04.2023', '24.04.2023', '25.04.2023', '26.04.2023']
 
@@ -346,7 +361,7 @@ class SET:
                                 new_filename = d[0:10] + ".xlsx"
 
 
-                                df.to_excel(PUT + "Источники\\Set\\" + new_filename, index=False)
+                                df.to_excel(PUT + "Selenium_set_data\\Скаченные с сайта\\" + new_filename, index=False)
                                 bot.BOT().bot_mes(mes="Фаил скачан: " + str(new_filename))
                                 del df
                                 gc.collect()
@@ -361,12 +376,13 @@ class SET:
     def History(self):
         spqr = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
         spqr = spqr[['ID', '!МАГАЗИН!']]
-        for root, dirs, files in os.walk(PUT + "Источники\\Set\\"):
+        for root, dirs, files in os.walk(PUT + "Selenium_set_data\\Скаченные с сайта\\"):
             for file in files:
                 os.path.basename(file)
                 file_path = os.path.join(root, file)
 
                 df  = pd.read_excel(file_path)
+                shutil.move(PUT + "Selenium_set_data\\Скаченные с сайта\\" + file, PUT + "Selenium_set_data\\По дням исходники" + file)
                 #df = df.drop(["Магазин 1C"], axis=1)
                 MEMORY().mem_total(x="Фаил загружен: " + os.path.basename(file_path))
 
@@ -402,18 +418,18 @@ class SET:
                            "подарочная карта КМ 1000 НОВАЯ")
                 for x in PODAROK:
                     sales_day = sales_day[~sales_day['Наименование товара'].str.contains(x)]
-                sales_day.to_excel(PUT + "Selenium_set_data\\Tекущий день\\" + new_filename, index=False)
+                sales_day.to_excel(PUT + "Selenium_set_data\\По дням исходники\\" + new_filename, index=False)
                 bot.BOT().bot_mes(mes="Сохранен фаил общих продаж: " + str(new_filename))
                 # обработка файла чеков
                 sales_day_cehk = SET().selenium_day_chek(name_datafreme=sales_day, name_file=str(new_filename))
                 # сохранение Сгрупированного файла чеков
 
-                sales_day_cehk.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Чеки\\" + new_filename, index=False)
+                sales_day_cehk.to_excel(PUT + "↓АРХИВ для дш\\Чеки\\2023\\" + new_filename, index=False)
                 bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename))
 
                 # сохранение Сгрупированного файла продаж;
                 sales_day_sales = SET().selenium_day_sales(name_datafreme=sales_day, name_file=str(new_filename))
-                sales_day_sales.to_excel(PUT + "Selenium_set_data\\Групировка по дням\\Продажи\\" + new_filename, index=False)
+                sales_day_sales.to_excel(PUT + "↓ТЕКУЩИЙ МЕСЯЦ\\Продажи текущий месяц\\" + new_filename, index=False)
                 bot.BOT().bot_mes(mes="Сохранен фаил чеков: " + str(new_filename[:-5]))
 
                 del sales_day_cehk
@@ -507,6 +523,7 @@ class SET:
         return sales_day_cehk
     """ОБРАБОТКА ЧЕКОВ"""
     def selenium_day_sales(self, name_datafreme, name_file):
+        sebes().history()
         bot.BOT().bot_mes(mes="Создание файла продаж... ")
         sales_day_sales = name_datafreme[["Дата/Время чека","ID","!МАГАЗИН!","Тип","Наименование товара","номенклатура_1с","Количество","Стоимость позиции","Сумма скидки"]]
         sales_day_sales = sales_day_sales.loc[sales_day_sales["Тип"] == "Продажа"]
@@ -530,7 +547,7 @@ class SET:
 
         # Доавление списания
         SET().selenium_day_Spisania()
-        file_spis = PUT + "Данные 1с\\Списания\\" + name_file[:-5] + ".txt"
+        file_spis = PUT + "↓АРХИВ для дш\\Списания\\" + name_file[:-5] + ".txt"
         if os.path.exists(file_spis):
             spis = pd.read_csv(file_spis, sep="\t", skiprows=1,encoding="utf-8",
                                     names=("!МАГАЗИН!", "номенклатура_1с", "Дата/Время чека","операции","сумма_списания",  "сумма_списания_nds"))
@@ -542,10 +559,17 @@ class SET:
             spis["Дата/Время чека"] = pd.to_datetime(spis["Дата/Время чека"], format='%d.%m.%Y')
             sales_day_sales = pd.concat([sales_day_sales, spis], axis=0).reset_index(drop=True)
 
+        if "операции" not in sales_day_sales .columns:
+            sales_day_sales ["операции"] = None
+        if "сумма_списания" not in sales_day_sales .columns:
+            sales_day_sales ["сумма_списания"] = None
+        if "сумма_списания_nds" not in sales_day_sales.columns:
+            sales_day_sales ["сумма_списания_nds"] = None
+
         return sales_day_sales
     """ОБРАБОТКА ПРОДАЖ"""
     def selenium_day_Spisania(self):
-        for root, dirs, files in os.walk(PUT + "Данные 1с\\СПИСАНИЯ НОВЫЕ\\"):
+        for root, dirs, files in os.walk(PUT + "NEW\\Списания\\"):
             for file in files:
                 os.path.basename(file)
                 file_path = os.path.join(root, file)
@@ -572,22 +596,58 @@ class SET:
 
                     df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format="%d.%m.%Y")
                     day_df = df.loc[df["Дата/Время чека"] == pd.to_datetime(date, format="%d.%m.%Y")]
-                    file_name = os.path.join(PUT + "Данные 1с\\Списания\\", date + ".txt")
+                    file_name = os.path.join(PUT + "↓АРХИВ для дш\\Списания\\", date + ".txt")
                     day_df.to_csv(file_name, sep="\t", encoding="utf-8", decimal=".", index=False)
                     MEMORY().mem_total(x="Разбиение по дням: " + os.path.basename(file))
-                #os.remove(PUT + "Данные 1с\\СПИСАНИЯ НОВЫЕ\\" +file)
+                os.remove(PUT + "NEW\\Списания\\" +file)
 
             gc.collect()
         bot.BOT().bot_mes(mes="Дробление файла списания.....")
         return
-
     """РАЗДРОБЛЕНИЕ ФАЙЛА ПИСАНИЙ НА ДНИ"""
 
+class sebes:
+    def history(self):
+        for root, dirs, files in os.walk(PUT + "NEW\\Сибестоемость\\"):
+            for file in files:
+                os.path.basename(file)
+                file_path = os.path.join(root, file)
+                df = pd.read_csv(file_path, sep="\t", encoding='utf-8',parse_dates=["Дата/Время чека"], date_format="%d.%m.%Y",  skiprows=2, names=("Дата/Время чека", "!МАГАЗИН!","номенклатура_1с", "Сибистоемость", "Вес_продаж", "прибыль"))
+                RENAME().Rread(name_data=df, name_col="!МАГАЗИН!", name="Списания")
+                df = df.loc[df["!МАГАЗИН!"] != "Итого"]
+                df = df.loc[df["Дата/Время чека"] != "Итого"]
+                l_mag = ("Микромаркет", "Экопункт", "Вендинг", "Итого")
+                df["!МАГАЗИН!"] = df["!МАГАЗИН!"].fillna("Не известно")
+                for w in l_mag:
+                    df = df[~df["!МАГАЗИН!"].str.contains(w)]
 
+                # "<Объект не найден>" и пустые удалить из столбца причина
 
+                #df["Дата/Время чека"] = df["Дата/Время чека"].str[:10]
 
+                date_str = df["Дата/Время чека"].unique()
 
+                #date_str = dates.strftime("%d.%m.%Y")
+                #print(dates)
+                #df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format='%d.%m.%Y')
+
+                for date in date_str :
+
+                    df["Дата/Время чека"] = pd.to_datetime(df["Дата/Время чека"], format="%d.%m.%Y")
+                    day_df = df.loc[df["Дата/Время чека"] == pd.to_datetime(date, format="%d.%m.%Y")]
+                    file_name = os.path.join(PUT + "↓ТЕКУЩИЙ МЕСЯЦ\\Себестоймость текущий месяц\\", date + ".txt")
+                    day_df.to_csv(file_name, sep="\t", encoding="utf-8", decimal=".", index=False)
+                    MEMORY().mem_total(x="Разбиение по дням: " + os.path.basename(file))
+                os.remove(PUT + "NEW\\Сибестоемость\\" +file)
+
+            gc.collect()
+        bot.BOT().bot_mes(mes="Дробление сибестоемости.....")
 
 
 SET().Set_obrabotka()
+
+
+
+
+
 

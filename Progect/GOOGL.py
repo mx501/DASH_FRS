@@ -232,7 +232,7 @@ class tbl:
         else:
             for item in items:
                 alltbl.append(item['id'])
-                print(u'{0} ({1})'.format(item['name'], item['id']))
+                #print(u'{0} ({1})'.format(item['name'], item['id']))
         # Создаем список списков с названием таблиц и их id
         table_info = [[item['name'], item['id']] for item in items]
         # Создаем DataFrame из списка списков
@@ -247,7 +247,7 @@ class tbl:
         for i in alltbl:
             file_id = i
             response = service.files().delete(fileId=file_id).execute()
-            print("удаление " ,i)
+            #print("удаление " ,i)
 
 #tbl().dele()
 #tbl().new()
