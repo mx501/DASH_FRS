@@ -27,7 +27,7 @@ gc.enable()
 # Отправлять ли в группу вечеринка аналитиков Сообщения?
 BOT_ANALITIK = "n"
 #BOT_RUK = "n"
-TY_GROP = 0
+TY_GROP = 1
 # пересчитать данные
 DATA = "n"
 
@@ -150,7 +150,7 @@ class BOT:
 
             url = f'https://api.telegram.org/bot{token}/sendMessage'
             # Параметры запроса для отправки сообщения
-            params_ty = {'chat_id': TY_id, 'text': mes, 'parse_mode': 'HTML'}
+            params_ty = {'chat_id': TY_id, 'text': mes, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
             # Отправка запроса на сервер Telegram для отправки сообщения
             response_ty = requests.post(url, data=params_ty)
             # Проверка ответа от сервера Telegram
@@ -758,7 +758,7 @@ class BOT_raschet:
             for folder in [folder1, folder2]:
                 file_path = os.path.join(folder, file_p)
                 if os.path.exists(file_path):
-                   #print(f"Файл {file_p} найден в папке {folder}.")
+                    #print(f"Файл {file_p} найден в папке {folder}.")
                     print(file_path)
                     x = pd.read_excel(file_path, parse_dates=["Дата/Время чека"],date_format='%Y-%m-%d %H:%M:%S')
                     print(priznak, "\n", x)
@@ -874,14 +874,18 @@ class BOT_raschet:
         TODEY_Last1 = TODEY_Last.strftime('%d.%m.%Y')
         TODEY_Last2 = pd.to_datetime(file_max_date, format='%d.%m.%Y') - pd.offsets.Day(3)
         TODEY_Last2 = TODEY_Last.strftime('%d.%m.%Y')
+        TODEY_Last3 = pd.to_datetime(file_max_date, format='%d.%m.%Y') - pd.offsets.Day(4)
+        TODEY_Last3 = TODEY_Last.strftime('%d.%m.%Y')
+
         TODEY_Last = TODEY_Last.strftime('%d.%m.%Y')
 
 
         BOT().bot_mes(mes="Дата вчера:\n " + str(TODEY_Last))
         file = [str(TODEY_Last)]
-
-        file.append(TODEY_Last1)
-        file.append(TODEY_Last2)
+        print(file)
+        #file.append(TODEY_Last1)
+        #file.append(TODEY_Last2)
+        #file.append(TODEY_Last3)
         for file in file:
             df = fil_pisk(file=file,priznak="ВЧЕРАШНЯЯ ДАТА")
             Bot = pd.concat([Bot, df], axis=0, ).reset_index(drop=True)
@@ -1041,6 +1045,13 @@ class BOT_raschet:
                     date_day = "   • " + max_date.strftime("%Y-%m-%d")
                     date_day_vcher = pd.to_datetime(max_date, format='%d.%m.%Y') - pd.offsets.Day(1)
                     date_day_vcher ="   • " + date_day_vcher.strftime("%Y-%m-%d")
+                    # если выходные
+                    date_day_vcher1 = pd.to_datetime(max_date, format='%d.%m.%Y') - pd.offsets.Day(2)
+                    date_day_vcher1 = "   • " + date_day_vcher1.strftime("%Y-%m-%d")
+                    date_day_vcher2 = pd.to_datetime(max_date, format='%d.%m.%Y') - pd.offsets.Day(3)
+                    date_day_vcher2 = "   • " + date_day_vcher2.strftime("%Y-%m-%d")
+                    date_day_vcher3 = pd.to_datetime(max_date, format='%d.%m.%Y') - pd.offsets.Day(4)
+                    date_day_vcher3 = "   • " + date_day_vcher3.strftime("%Y-%m-%d")
 
                     max_date_mounth_mes = []
                     if weekday == 'Воскресенье':
@@ -1163,22 +1174,22 @@ class BOT_raschet:
                         sig_day_DEG = "❗"
                     # endregion
                     #max_date = df["Дата/Время чека"].max()
-
+                    podpis_mes = "Результаты вчерашнего дня:"
                     SVODKA = f'<b>👨‍💼 {i}:</b>\n\n' \
-                             f'<b>{podpis_mes} <a href="{Goole_url}">ссылкa</a></b>'\
+                             f'<b><a href="{Goole_url}">{podpis_mes}\n</a></b>'\
                              f'<i>{date_day_vcher}</i>\n\n' \
                              f'💰 Выручка: {df_day_sales}\n' \
                              f'💸 Списания(показатель):\n{sig_day_sp}{df_day_sp} ({df_day_prosent})\n' \
                              f'     <i>• Хозы: {df_day_sp_HOZ} ({df_day_sp_HOZ_prosent})</i>\n' \
                              f'   <i>{sig_day_DEG}Дегустации: {df_day_sp_DEG} ({df_day_sp_DEG_prosent})</i>\n' \
                              f'🧾 Средний чек: -----\n\n' \
-                             f'<b>Текущий месяц(Без сегодня): <a href="{Goole_url_mes}">ссылкa</a></b>\n' \
+                             f'<b><a href="{Goole_url_mes}">Текущий месяц(Без сегодня): </a></b>\n' \
                              f'<i>{max_date_mounth_mes}</i>\n\n' \
                              f'💰 Выручка: {df_month_sales}\n' \
                              f'💸 Списания(показатель):\n{sig_month_sp}{df_month_sp} ({df_month_prosent})\n' \
                              f'     <i>• Хозы: {df_month_sp_HOZ} ({df_month_sp_HOZ_prosent})</i>\n\n' \
-                             f'<b>Изменение к прошлому дню/месяцу:</b>\n' \
-                             f'💰 Выручка: ({IZMEN_DAY}) ({IZMEN_M_})\n' \
+                             #f'<b>Изменение к прошлому дню/месяцу:</b>\n' \
+                             #f'💰 Выручка: ({IZMEN_DAY}) ({IZMEN_M_})\n' \
                              #f'💸 Списания(показатель): ({IZMEN_DAYs}) ({IZMEN_Ms})\n\n'
 
                     BOT().bot_mes_html(mes=SVODKA)
@@ -1215,8 +1226,6 @@ class BOT_raschet:
                 SKIDKI_TODEY_PROC = '{:,.1%}'.format(SKIDKI_TODEY_PROC_N).replace(',', ' ')
 
 
-
-
                 SVODKA = f'<b>👨‍ {i}:</b>\n' \
                          f'💰 Выручка : {df_day_sales}\n'\
                          f'🎁 Скидки : {SKIDKI_TODEY}  ({SKIDKI_TODEY_PROC})\n'
@@ -1229,9 +1238,14 @@ class BOT_raschet:
 #BOT_raschet().Messege()
 
 # Формирование сообщения ежедневного
+"""dd =f'Коллеги добрый день:\n'  \
+    f'Дашборд обновлен:\n'\
+
+    f'<b><a href="{Goole_url}">{podpis_mes}\n</a></b>'\
 
 
-
+BOT().bot_mes_html_TY(mes=SVODKA)
+"""
 
 
 

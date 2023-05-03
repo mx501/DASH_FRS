@@ -60,7 +60,6 @@ class RENAME:
 
 class Finrez:
     def Finrez(self):
-
         print(
             "Обновление финреза\n")
         for files in os.listdir(PUT + "Финрез\\Исходник\\"):
