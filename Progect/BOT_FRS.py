@@ -13,18 +13,17 @@ import gc
 import requests
 import datetime
 import holidays
-from datetime import date
 # from memory_profiler import profile
 import numpy as np
 import calendar
 import holidays
-from datetime import date
 #import bot_TELEGRAM as bot
 import GOOGL as gg
 from dateutil import parser
 from dateutil import relativedelta
 from dateutil import rrule
 import winsound
+import datetime
 pd.set_option("expand_frame_repr", False)
 pd.set_option('display.max_colwidth', None)
 gc.enable()
@@ -93,6 +92,7 @@ class RENAME:
     def TY_Spravochnik(self):
         ty = pd.read_excel("https://docs.google.com/spreadsheets/d/1qXyD0hr1sOzoMKvMyUBpfTXDwLkh0RwLcNLuiNbWmSM/export?exportFormat=xlsx")
         ty = ty[["!МАГАЗИН!","Менеджер"]]
+        ty  = ty .rename(columns={"!МАГАЗИН!": "магазин"})
         return ty
 class MEMORY:
     def mem(self, x, text):
@@ -212,6 +212,10 @@ class BOT_raschet:
                 return False
             else:
                 return True  # Иначе это рабочий день.
+        def save_date(date_list,name):
+            with open(PUT + "Bot\\temp\\даты файлов\\" + name + '.txt', 'w') as f:
+                f.write(str(date_list))
+
         # Чтение даты из файла
         with open(PUT + 'NEW\\дата обновления.txt', 'r') as f:
             date_str = f.readline().strip()
@@ -223,7 +227,7 @@ class BOT_raschet:
         print("Дата в файле\n",TODEY)
 
         # тестовая
-        test = 0
+        test = 1
         if test ==1:
             MAX_DATE = datetime.datetime.strptime("2023-05-10", '%Y-%m-%d').date()
             LAST_DATE = MAX_DATE - datetime.timedelta(days=1)
@@ -244,7 +248,7 @@ class BOT_raschet:
                 VCHERA.append(LAST_DATE.strftime(format_date_str))
         else:
             priznzk = "выходной день"
-
+        # запись в файл
         print(priznzk)
         print(VCHERA)
 
@@ -272,11 +276,41 @@ class BOT_raschet:
         print("Прошлый месяц\n",LAST_month)
 
         # endregion
+        save_date(priznzk, "priznzk")
+        save_date(TODEY,"TODEY")
+        save_date(VCHERA,"VCHERA")
+        save_date(TODEY_month,"TODEY_month")
+        save_date(LAST_month,"LAST_month")
+
         return TODEY, VCHERA, TODEY_month, LAST_month, priznzk
     # формирование списка дат
     def tabl_bot_file(self):
         TODEY, VCHERA, TODEY_month, LAST_month, priznzk = BOT_raschet().tabl_bot_date()
+
+
         Bot = pd.DataFrame()
+        def col_n(x):
+            if "списания" not in x.columns:
+                # если нет, то создаем столбец "списания"
+                x["списания"] = 0
+            if "операция" not in x.columns:
+                # если нет, то создаем столбец "списания"
+                x["операция"] = 0
+            len_float =["выручка","скидка"]
+            FLOAT().float_colms(name_data=x, name_col=len_float)
+            x.loc[x["выручка"] > 0, "операция"] = "Выручка"
+            x.loc[x["скидка"] > 0, "операция"] = "Скидка"
+            x.loc[x["операция"] == "Дегустации", "Дегустации"] = x["списания"]
+            x.loc[x["операция"] == "Хозяйственные товары", "Хозяйственные товары"] = x["списания"]
+            x.loc[(x["операция"] == "Кражи")
+                    | (x["операция"] == "ПОТЕРИ")
+                    | (x["операция"] == "Питание сотрудников")
+                    | (x["операция"] == "Подарок покупателю (сервисная фишка)")
+                    | (x["операция"] == "Подарок покупателю (бонусы)")
+                    | (x["операция"] == "Дегустации") | (x["операция"] == "МАРКЕТИНГ (блогеры, фотосессии)"), "Списания_показатель"] = x["списания"]
+            return x
+
+        # создание столбцов для отбора
         def poisk(file,otbor):
             file_p = file + '.xlsx'
             folder1 = PUT + "↓ТЕКУЩИЙ МЕСЯЦ\\Продажи текущий месяц\\"
@@ -285,23 +319,135 @@ class BOT_raschet:
 
                 file_path = os.path.join(folder, file_p)
                 if os.path.exists(file_path):
-                    x = pd.read_excel(file_path, parse_dates=["Дата/Время чека"], date_format='%Y-%m-%d %H:%M:%S')
                     print(file_path)
-                    return x
+                    x = pd.read_excel(file_path, parse_dates=["Дата/Время чека"], date_format='%Y-%m-%d %H:%M:%S')
+                    y = x[["Дата/Время чека","!МАГАЗИН!","номенклатура_1с","Стоимость позиции","Сумма скидки","операции","сумма_списания"]]
+                    del x
+                    gc.collect()
+                    # перименование столбцов
+                    y = y.rename(columns={"!МАГАЗИН!":"магазин","номенклатура_1с":"номенклатура",
+                                          "Стоимость позиции":"выручка","Сумма скидки":"скидка","Дата/Время чека":"дата","операции":"операция","сумма_списания":"списания"})
 
 
-        for file in LAST_month:
+                    # создание столбца отюора
+                    y["отбор"] = otbor
+                    col_n(y)
+
+                    # перевод во float
+                    len_float = ["выручка","скидка","списания","Дегустации","Хозяйственные товары","Списания_показатель"]
+                    FLOAT().float_colms(name_data=y,name_col=len_float)
+                    # групировка таблицы
+                    y= y.groupby(["магазин","номенклатура","отбор","операция"],
+                                  as_index=False).agg(
+                        {"выручка": "sum", "скидка": "sum", "списания": "sum", "Дегустации": "sum", "Хозяйственные товары": "sum",
+                         "Списания_показатель": "sum"}).reset_index(drop=True)
+
+
+
+
+                    return y
+
+        for file in TODEY:
             X = poisk(file=str(file), otbor="TODEY")
+            print(X)
             Bot = pd.concat([Bot, X], axis=0,).reset_index(drop=True)
             del file
             gc.collect()
-            MEMORY().mem_total(x="прошлый после удаления")
+            MEMORY().mem_total(x="TODEY")
 
-        print(Bot)
+        for file in VCHERA:
+            X = poisk(file=str(file), otbor="VCHERA")
+            Bot = pd.concat([Bot, X], axis=0,).reset_index(drop=True)
+            del file
+            gc.collect()
+            MEMORY().mem_total(x="VCHERA")
+
+        for file in TODEY_month:
+            X = poisk(file=str(file), otbor="TODEY_month")
+            Bot = pd.concat([Bot, X], axis=0,).reset_index(drop=True)
+            del file
+            gc.collect()
+            MEMORY().mem_total(x="TODEY_month")
+
+        for file in LAST_month:
+            X = poisk(file=str(file), otbor="LAST_month")
+            Bot = pd.concat([Bot, X], axis=0,).reset_index(drop=True)
+            del file
+            gc.collect()
+            MEMORY().mem_total(x="LAST_month")
+
+        # Добавление ТУ
+        MEMORY().mem_total(x="3")
+        ty = RENAME().TY_Spravochnik()
+        Bot = Bot.merge(ty, on=["магазин"], how="left").reset_index(drop=True)
+        del ty,
+        gc.collect()
+
+        # переисенование менеджеров
+        Ln_tip = {'Турова Анна Сергеевна': 'Турова А.С',
+                  'Баранова Лариса Викторовна': 'Баранова Л.В',
+                  'Геровский Иван Владимирович': 'Геровский И.В',
+                  'Изотов Вадим Валентинович': 'Изотов В.В',
+                  'Томск': 'Томск',
+                  'Павлова Анна Александровна': 'Павлова А.А',
+                  'Бедарева Наталья Геннадьевна': 'Бедарева Н.Г',
+                  'Сергеев Алексей Сергеевич': 'Сергеев А.С',
+                  'Карпова Екатерина Эдуардовна': 'Карпова Е.Э'}
+        Bot["Менеджер"] = Bot["Менеджер"].map(Ln_tip)
+
+        Bot.to_excel(PUT + "Bot\\temp\\" + "Bot_v2test.xlsx", index=False)
         return Bot
     # создание таблиц
     def raschet(self):
+        def DATE():
+
+            # Определение даты обновления дашборда
+            now = datetime.now()
+            NEW_date = (now.hour + 1) if now.minute >= 30 else (now.hour)
+            NEW_date = datetime(now.year, now.month, now.day, NEW_date, 0, 0)
+            NEW_date = NEW_date.strftime("%H:%M")
+            print("Текущее время (округлено до часа):", NEW_date)
+            current_time = f'🕙 Данные на : {NEW_date}\n'
+
+            # список дат из файла TODEY_month
+            with open(PUT + "Bot\\temp\\даты файлов\\TODEY.txt", 'r') as f:
+                dates = f.read().strip()[1:-1].split(', ')
+
+            # Формируем сообщение TODEY_month
+            TODEY_date = f'Результаты прошлого дня:\n'
+            for date in dates:
+                TODEY_date +=  f'•\u200E {date[1:-1]}\n'
+            print(TODEY_date)
+
+            # список дат из файла TODEY_month
+            with open(PUT + "Bot\\temp\\даты файлов\\VCHERA.txt", 'r') as f:
+                dates = f.read().strip()[1:-1].split(', ')
+
+            # Формируем сообщение TODEY_month
+            VCHERA_date = f'Результаты прошедших выходных:\n'
+            for date in dates:
+                VCHERA_date += f'•\u200E {date[1:-1]}\n'
+            print(VCHERA_date)
+
+            return VCHERA_date,TODEY_date
+
+        DATE()
+
+
+
+        #now = datetime.now()
+        #current_time = now.strftime("%H:%M:%S")
+        #f = "10:00:00"
+        #df = pd.read_excel(PUT + "Bot\\temp\\" + "Сводная_бот.xlsx")
+
+
+
+
         return
+
+
+
+
 
     def BOT(self):
         #########################Товар дня
@@ -824,6 +970,6 @@ class BOT_raschet:
                 BOT().bot_mes_html(mes=SVODKA)
                 if TY_GROP == 1:
                     BOT().bot_mes_html_TY(mes=SVODKA)
-
-
-BOT_raschet().tabl_bot_file()
+BOT_raschet().tabl_bot_date()
+BOT_raschet().raschet()
+#BOT_raschet().tabl_bot_file()
